@@ -8,9 +8,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_UPSTOX_API_KEY || '';
-  const apiSecret = process.env.UPSTOX_API_SECRET || '';
-  const redirectUri = 'http://localhost:3000/api/auth/upstox/callback';
+  const apiKey =
+    process.env.NEXT_PUBLIC_UPSTOX_API_KEY ||
+    process.env.UPSTOX_API_KEY ||
+    '4dbed514-89f5-485d-b276-14539c3c0ddb';
+  const apiSecret = process.env.UPSTOX_API_SECRET || 'hh7wmkfksw';
+  
+  const origin = request.nextUrl.origin;
+  const redirectUri = `${origin}/api/auth/upstox/callback`;
 
   try {
     const tokenResponse = await fetch('https://api.upstox.com/v2/login/authorization/token', {
@@ -37,7 +42,7 @@ export async function GET(request: NextRequest) {
       response.cookies.set('upstox_access_token', data.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 16, // 16 hours (valid for the trading session)
+        maxAge: 60 * 60 * 16, // 16 hours
         path: '/',
       });
 
