@@ -9,15 +9,22 @@ import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, 
 interface NavbarProps {
   activeSymbol: string;
   onSelectStock: (symbol: string) => void;
+  indices?: LiveIndexQuote[];
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock, indices: liveIndicesProp }) => {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<'PRE_OPEN' | 'LIVE' | 'CLOSED'>('LIVE');
-  const [indices, setIndices] = useState<LiveIndexQuote[]>(INITIAL_MARKET_INDICES);
+  const [indices, setIndices] = useState<LiveIndexQuote[]>(liveIndicesProp || INITIAL_MARKET_INDICES);
+
+  useEffect(() => {
+    if (liveIndicesProp && liveIndicesProp.length > 0) {
+      setIndices(liveIndicesProp);
+    }
+  }, [liveIndicesProp]);
 
   useEffect(() => {
     setMounted(true);

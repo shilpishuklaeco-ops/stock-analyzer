@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NIFTY_50_STOCKS } from '@/lib/mockStockData';
+import { NIFTY_50_STOCKS, INITIAL_MARKET_INDICES, LiveIndexQuote } from '@/lib/mockStockData';
 import { UPSTOX_INSTRUMENT_MAP } from '@/lib/upstoxClient';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { NiftyStock } from '@/lib/types';
+
+const INDEX_INSTRUMENT_MAP: Record<string, { symbol: string; name: string }> = {
+  'NSE_INDEX:Nifty 50': { symbol: 'NIFTY50', name: 'NIFTY 50' },
+  'BSE_INDEX:SENSEX': { symbol: 'SENSEX', name: 'SENSEX' },
+  'NSE_INDEX:Nifty Bank': { symbol: 'BANKNIFTY', name: 'BANK NIFTY' },
+  'NSE_INDEX:Nifty IT': { symbol: 'NIFTYIT', name: 'NIFTY IT' },
+  'NSE_INDEX:Nifty Auto': { symbol: 'NIFTYAUTO', name: 'NIFTY AUTO' },
+  'NSE_INDEX:Nifty Pharma': { symbol: 'NIFTYPHARMA', name: 'NIFTY PHARMA' },
+};
+
+const INDEX_QUERY_KEYS = [
+  'NSE_INDEX|Nifty 50',
+  'BSE_INDEX|SENSEX',
+  'NSE_INDEX|Nifty Bank',
+  'NSE_INDEX|Nifty IT',
+  'NSE_INDEX|Nifty Auto',
+  'NSE_INDEX|Nifty Pharma',
+];
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,18 +32,18 @@ export async function GET(request: NextRequest) {
     const symbolsList = Object.keys(UPSTOX_INSTRUMENT_MAP);
 
     let fetchedQuotes: Record<string, Partial<NiftyStock>> = {};
+    let fetchedIndices: LiveIndexQuote[] = [...INITIAL_MARKET_INDICES];
     let isLiveUpstoxFeed = false;
     let tokenTypeUsed = 'None';
 
-    // 2. Attempt Upstox Batch Fetch using exact Instrument Keys (e.g. NSE_EQ|INE002A01018)
+    // 2. Attempt Upstox Batch Fetch for Stocks + Benchmark Indices
     if (activeToken) {
-      const formattedSymbols = symbolsList
-        .map((sym) => UPSTOX_INSTRUMENT_MAP[sym] || `NSE_EQ:${sym}`)
-        .join(',');
+      const stockKeys = symbolsList.map((sym) => UPSTOX_INSTRUMENT_MAP[sym] || `NSE_EQ:${sym}`);
+      const allQueryKeys = [...stockKeys, ...INDEX_QUERY_KEYS].join(',');
 
       try {
         const upstoxRes = await fetch(
-          `https://api.upstox.com/v2/market-quote/quotes?symbol=${encodeURIComponent(formattedSymbols)}`,
+          `https://api.upstox.com/v2/market-quote/quotes?symbol=${encodeURIComponent(allQueryKeys)}`,
           {
             headers: {
               Accept: 'application/json',
@@ -43,8 +61,8 @@ export async function GET(request: NextRequest) {
               ? 'Upstox 1-Year Analytics Token (Live)'
               : 'Upstox OAuth User Token';
 
+            // Parse Stocks Data
             for (const sym of symbolsList) {
-              // Upstox response key format: NSE_EQ:RELIANCE
               const item = json.data[`NSE_EQ:${sym}`];
               if (item) {
                 const ohlc = item.ohlc || {};
@@ -60,6 +78,31 @@ export async function GET(request: NextRequest) {
                   volume: item.volume || 0,
                 };
               }
+            }
+
+            // Parse Indices Data
+            const liveIndices: LiveIndexQuote[] = [];
+            for (const [key, meta] of Object.entries(INDEX_INSTRUMENT_MAP)) {
+              const idxItem = json.data[key];
+              if (idxItem) {
+                const ohlc = idxItem.ohlc || {};
+                const lastPrice = idxItem.last_price || ohlc.close || 0;
+                const prevClose = ohlc.close || lastPrice;
+                const netChange = idxItem.net_change ?? (lastPrice - prevClose);
+                const pctChange = prevClose ? (netChange / prevClose) * 100 : 0;
+
+                liveIndices.push({
+                  symbol: meta.symbol,
+                  name: meta.name,
+                  price: Number(lastPrice.toFixed(2)),
+                  change: Number(netChange.toFixed(2)),
+                  changePercent: Number(pctChange.toFixed(2)),
+                });
+              }
+            }
+
+            if (liveIndices.length > 0) {
+              fetchedIndices = liveIndices;
             }
           }
         }
@@ -131,12 +174,13 @@ export async function GET(request: NextRequest) {
         : isSupabaseConfigured
         ? 'Supabase DB Cache'
         : 'NSE Baseline Engine',
+      indices: fetchedIndices,
       stocks: updatedStocks,
     });
   } catch (error) {
     console.error('Error in /api/market/quotes route:', error);
     return NextResponse.json(
-      { success: false, stocks: NIFTY_50_STOCKS, error: 'Internal Server Error' },
+      { success: false, indices: INITIAL_MARKET_INDICES, stocks: NIFTY_50_STOCKS, error: 'Internal Server Error' },
       { status: 500 }
     );
   }

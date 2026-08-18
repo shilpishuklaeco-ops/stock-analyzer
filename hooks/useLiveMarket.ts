@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { NiftyStock } from '@/lib/types';
-import { NIFTY_50_STOCKS, isNSEMarketOpen } from '@/lib/mockStockData';
+import { NIFTY_50_STOCKS, INITIAL_MARKET_INDICES, LiveIndexQuote, isNSEMarketOpen } from '@/lib/mockStockData';
 
 export function useLiveMarket() {
   const [stocks, setStocks] = useState<NiftyStock[]>(NIFTY_50_STOCKS);
+  const [indices, setIndices] = useState<LiveIndexQuote[]>(INITIAL_MARKET_INDICES);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastSynced, setLastSynced] = useState<string>('');
@@ -33,20 +34,26 @@ export function useLiveMarket() {
         }
       }
 
-      if (data && data.success && Array.isArray(data.stocks)) {
-        setStocks((prevStocks) => {
-          return data.stocks.map((newStock: NiftyStock) => {
-            const oldStock = prevStocks.find((s) => s.symbol === newStock.symbol);
-            if (
-              oldStock &&
-              oldStock.price === newStock.price &&
-              oldStock.change === newStock.change
-            ) {
-              return oldStock;
-            }
-            return newStock;
+      if (data && data.success) {
+        if (Array.isArray(data.stocks)) {
+          setStocks((prevStocks) => {
+            return data.stocks.map((newStock: NiftyStock) => {
+              const oldStock = prevStocks.find((s) => s.symbol === newStock.symbol);
+              if (
+                oldStock &&
+                oldStock.price === newStock.price &&
+                oldStock.change === newStock.change
+              ) {
+                return oldStock;
+              }
+              return newStock;
+            });
           });
-        });
+        }
+
+        if (Array.isArray(data.indices) && data.indices.length > 0) {
+          setIndices(data.indices);
+        }
 
         setDataSource(data.source || 'Public NSE Live Engine');
         setLastSynced(new Date().toLocaleTimeString('en-IN'));
@@ -77,6 +84,7 @@ export function useLiveMarket() {
 
   return {
     stocks,
+    indices,
     isLoading,
     isRefreshing,
     lastSynced,

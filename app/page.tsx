@@ -30,7 +30,7 @@ export default function Home() {
   const [mounted, setMounted] = useState<boolean>(false);
 
   // Always Live Auto-Sync Market Hook (Fetches 1-Year Upstox Analytics Stream)
-  const { stocks: niftyStocks, lastSynced } = useLiveMarket();
+  const { stocks: niftyStocks, indices: liveIndices, lastSynced } = useLiveMarket();
 
   // Active Quote State
   const [quote, setQuote] = useState<StockQuote>(INITIAL_RELIANCE_QUOTE);
@@ -194,7 +194,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 font-sans antialiased">
       {/* Navigation Header */}
-      <Navbar activeSymbol={activeSymbol} onSelectStock={setActiveSymbol} />
+      <Navbar activeSymbol={activeSymbol} onSelectStock={setActiveSymbol} indices={liveIndices} />
 
       {/* Main Dashboard Body - Clean Live Terminal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col gap-6">
