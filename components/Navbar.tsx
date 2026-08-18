@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NIFTY_50_STOCKS, getNSESessionStatus } from '@/lib/mockStockData';
+import { NIFTY_50_STOCKS, getNSESessionStatus, INITIAL_MARKET_INDICES, LiveIndexQuote } from '@/lib/mockStockData';
 import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, Bot } from 'lucide-react';
 
 interface NavbarProps {
@@ -17,17 +17,44 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) =
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<'PRE_OPEN' | 'LIVE' | 'CLOSED'>('LIVE');
+  const [indices, setIndices] = useState<LiveIndexQuote[]>(INITIAL_MARKET_INDICES);
 
   useEffect(() => {
     setMounted(true);
     setSessionStatus(getNSESessionStatus());
 
-    const interval = setInterval(() => {
+    const statusInterval = setInterval(() => {
       setSessionStatus(getNSESessionStatus());
     }, 10000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(statusInterval);
   }, []);
+
+  // Real-Time Live Ticker Simulation for Top Market Indices (Runs during Market Hours)
+  useEffect(() => {
+    if (sessionStatus === 'CLOSED') return;
+
+    const tickInterval = setInterval(() => {
+      setIndices((prevIndices) =>
+        prevIndices.map((idx) => {
+          const tickDirection = Math.random() > 0.47 ? 1 : -1;
+          const delta = Number(((Math.random() * 1.8 + 0.2) * tickDirection).toFixed(2));
+          const newPrice = Number((idx.price + delta).toFixed(2));
+          const newChange = Number((idx.change + delta).toFixed(2));
+          const newChangePercent = Number(((newChange / (idx.price - idx.change)) * 100).toFixed(2));
+
+          return {
+            ...idx,
+            price: newPrice,
+            change: newChange,
+            changePercent: newChangePercent,
+          };
+        })
+      );
+    }, 2200);
+
+    return () => clearInterval(tickInterval);
+  }, [sessionStatus]);
 
   const activeStock = NIFTY_50_STOCKS.find((s) => s.symbol === activeSymbol) || NIFTY_50_STOCKS[0];
 
@@ -56,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) =
 
   return (
     <header className="w-full bg-neutral-900/95 backdrop-blur border-b border-neutral-800 sticky top-0 z-50">
-      {/* Top Ticker Ribbon */}
+      {/* Top Ticker Ribbon with Live Tickers */}
       <div className="bg-neutral-950 border-b border-neutral-800/60 py-1.5 px-4 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-6 text-[11px] font-mono whitespace-nowrap max-w-7xl mx-auto">
           {/* Dynamic Session Status Badge */}
@@ -85,23 +112,24 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) =
 
           <div className="text-neutral-600">|</div>
 
-          {/* Quick Index Tickers */}
-          <div className="flex items-center gap-4 text-neutral-300">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-neutral-200">NIFTY 50</span>
-              <span className="text-emerald-400">24,541.15</span>
-              <span className="text-emerald-400 text-[10px]">(+0.46%)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-neutral-200">SENSEX</span>
-              <span className="text-emerald-400">80,436.84</span>
-              <span className="text-emerald-400 text-[10px]">(+0.52%)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-neutral-200">BANK NIFTY</span>
-              <span className="text-emerald-400">50,803.15</span>
-              <span className="text-emerald-400 text-[10px]">(+0.38%)</span>
-            </div>
+          {/* Real-Time Live Market Indices Tickers */}
+          <div className="flex items-center gap-5 text-neutral-300">
+            {indices.map((idx) => {
+              const isPositive = idx.change >= 0;
+
+              return (
+                <div key={idx.symbol} className="flex items-center gap-1.5">
+                  <span className="font-semibold text-neutral-200">{idx.name}</span>
+                  <span className={isPositive ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {idx.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`text-[10px] ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    ({isPositive ? '+' : ''}
+                    {idx.changePercent.toFixed(2)}%)
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

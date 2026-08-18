@@ -16,6 +16,26 @@ function createSeededPRNG(seedStr: string): () => number {
 
 export type NSESessionStatus = 'PRE_OPEN' | 'LIVE' | 'CLOSED';
 
+export interface LiveIndexQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
+/**
+ * Baseline Indian Market Major Benchmark Indices
+ */
+export const INITIAL_MARKET_INDICES: LiveIndexQuote[] = [
+  { symbol: 'NIFTY50', name: 'NIFTY 50', price: 24541.15, change: 112.40, changePercent: 0.46 },
+  { symbol: 'SENSEX', name: 'SENSEX', price: 80436.84, change: 415.20, changePercent: 0.52 },
+  { symbol: 'BANKNIFTY', name: 'BANK NIFTY', price: 50803.15, change: 192.10, changePercent: 0.38 },
+  { symbol: 'NIFTYIT', name: 'NIFTY IT', price: 38920.50, change: -240.10, changePercent: -0.61 },
+  { symbol: 'NIFTYAUTO', name: 'NIFTY AUTO', price: 26140.80, change: 310.50, changePercent: 1.20 },
+  { symbol: 'NIFTYPHARMA', name: 'NIFTY PHARMA', price: 22410.30, change: 180.20, changePercent: 0.81 },
+];
+
 /**
  * Get detailed National Stock Exchange (NSE) trading session status.
  * - 09:00 AM to 09:15 AM IST: PRE_OPEN
