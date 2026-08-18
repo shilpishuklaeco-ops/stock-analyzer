@@ -78,42 +78,42 @@ export function isNSEMarketOpen(): boolean {
   return status === 'LIVE' || status === 'PRE_OPEN';
 }
 
-// Calibrated Nifty 50 constituents data matching Real NSE Closing Prices
+// Calibrated Nifty 50 constituents data matching Real Upstox NSE Closing Prices
 export const NIFTY_50_STOCKS: NiftyStock[] = [
-  { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', sector: 'Energy', price: 1316.00, change: 7.30, changePercent: 0.56, marketCap: 1780000, volume: 12420150 },
-  { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT', price: 2313.20, change: -18.40, changePercent: -0.79, marketCap: 837000, volume: 2150400 },
-  { symbol: 'INFY', name: 'Infosys Ltd', sector: 'IT', price: 1139.90, change: 12.80, changePercent: 1.14, marketCap: 473000, volume: 4890100 },
-  { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', sector: 'Banking', price: 729.00, change: 5.50, changePercent: 0.76, marketCap: 555000, volume: 8900150 },
-  { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', sector: 'Banking', price: 1415.30, change: 15.20, changePercent: 1.09, marketCap: 995000, volume: 6450000 },
-  { symbol: 'SBIN', name: 'State Bank of India', sector: 'Banking', price: 1061.20, change: -6.10, changePercent: -0.57, marketCap: 947000, volume: 9120400 },
-  { symbol: 'BHARTIARTL', name: 'Bharti Airtel Ltd', sector: 'Telecom', price: 1969.30, change: 28.40, changePercent: 1.46, marketCap: 1155000, volume: 3800000 },
+  { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', sector: 'Energy', price: 1322.00, change: 6.00, changePercent: 0.45, marketCap: 1780000, volume: 10180567 },
+  { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT', price: 2280.00, change: -33.20, changePercent: -1.46, marketCap: 837000, volume: 1797822 },
+  { symbol: 'INFY', name: 'Infosys Ltd', sector: 'IT', price: 1115.00, change: -24.90, changePercent: -2.23, marketCap: 473000, volume: 8851110 },
+  { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', sector: 'Banking', price: 723.00, change: -6.00, changePercent: -0.83, marketCap: 555000, volume: 17916507 },
+  { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', sector: 'Banking', price: 1412.00, change: -3.30, changePercent: -0.23, marketCap: 995000, volume: 8345198 },
+  { symbol: 'SBIN', name: 'State Bank of India', sector: 'Banking', price: 1053.00, change: -8.20, changePercent: -0.78, marketCap: 947000, volume: 5583771 },
+  { symbol: 'BHARTIARTL', name: 'Bharti Airtel Ltd', sector: 'Telecom', price: 1934.20, change: -35.10, changePercent: -1.81, marketCap: 1155000, volume: 6710275 },
   { symbol: 'TATAMOTORS', name: 'Tata Motors Ltd', sector: 'Automobile', price: 712.90, change: 8.75, changePercent: 1.24, marketCap: 262000, volume: 5410000 },
-  { symbol: 'SUNPHARMA', name: 'Sun Pharmaceutical Inds', sector: 'Pharma', price: 1882.00, change: 24.60, changePercent: 1.32, marketCap: 451000, volume: 2100000 },
-  { symbol: 'ITC', name: 'ITC Ltd', sector: 'FMCG', price: 472.35, change: 4.10, changePercent: 0.87, marketCap: 589000, volume: 7120000 },
-  { symbol: 'M&M', name: 'Mahindra & Mahindra Ltd', sector: 'Automobile', price: 2910.80, change: -32.40, changePercent: -1.10, marketCap: 361000, volume: 1980000 },
-  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Ltd', sector: 'FMCG', price: 2740.00, change: -12.30, changePercent: -0.45, marketCap: 643000, volume: 1450000 },
+  { symbol: 'SUNPHARMA', name: 'Sun Pharmaceutical Inds', sector: 'Pharma', price: 1875.10, change: -6.90, changePercent: -0.37, marketCap: 451000, volume: 1819169 },
+  { symbol: 'ITC', name: 'ITC Ltd', sector: 'FMCG', price: 270.00, change: -3.05, changePercent: -1.13, marketCap: 589000, volume: 14561572 },
+  { symbol: 'M&M', name: 'Mahindra & Mahindra Ltd', sector: 'Automobile', price: 3421.50, change: 31.10, changePercent: 0.91, marketCap: 361000, volume: 1371664 },
+  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Ltd', sector: 'FMCG', price: 2035.00, change: -20.00, changePercent: -0.98, marketCap: 643000, volume: 1234596 },
   { symbol: 'L&T', name: 'Larsen & Toubro Ltd', sector: 'Construction', price: 3620.00, change: -45.00, changePercent: -1.23, marketCap: 497000, volume: 1850000 },
-  { symbol: 'NTPC', name: 'NTPC Ltd', sector: 'Energy', price: 395.70, change: 8.20, changePercent: 2.12, marketCap: 383000, volume: 11200000 },
-  { symbol: 'POWERGRID', name: 'Power Grid Corp of India', sector: 'Energy', price: 342.10, change: 5.40, changePercent: 1.60, marketCap: 318000, volume: 8500000 },
-  { symbol: 'TATASTEEL', name: 'Tata Steel Ltd', sector: 'Metals', price: 158.40, change: -2.10, changePercent: -1.31, marketCap: 197000, volume: 14200000 },
+  { symbol: 'NTPC', name: 'NTPC Ltd', sector: 'Energy', price: 337.10, change: 0.10, changePercent: 0.03, marketCap: 383000, volume: 9943991 },
+  { symbol: 'POWERGRID', name: 'Power Grid Corp of India', sector: 'Energy', price: 268.00, change: 1.85, changePercent: 0.69, marketCap: 318000, volume: 6792173 },
+  { symbol: 'TATASTEEL', name: 'Tata Steel Ltd', sector: 'Metals', price: 185.50, change: -0.50, changePercent: -0.27, marketCap: 197000, volume: 13393441 },
 ];
 
 export const INITIAL_RELIANCE_QUOTE: StockQuote = {
   symbol: 'RELIANCE',
   name: 'Reliance Industries Ltd.',
   sector: 'Oil & Gas / Conglomerate',
-  price: 1316.00,
-  change: 7.30,
-  changePercent: 0.56,
-  dayHigh: 1328.00,
-  dayLow: 1304.50,
+  price: 1322.00,
+  change: 6.00,
+  changePercent: 0.45,
+  dayHigh: 1328.60,
+  dayLow: 1311.20,
   yearHigh: 1608.80,
   yearLow: 1180.20,
-  open: 1310.00,
-  prevClose: 1308.70,
-  volume: 12420150,
+  open: 1314.00,
+  prevClose: 1316.00,
+  volume: 10180567,
   marketCap: '₹17.80 Lakh Cr',
-  vwap: 1314.40,
+  vwap: 1322.76,
   buyPercent: 64,
   sellPercent: 36,
   lastUpdated: new Date().toLocaleTimeString('en-IN'),
@@ -141,41 +141,41 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
     pointsCount = 30;
     intervalDays = 1;
   } else if (timeframe === '1Y') {
-    pointsCount = 250;
-    intervalDays = 1;
+    pointsCount = 52;
+    intervalDays = 7;
   } else {
-    pointsCount = 500;
-    intervalDays = 2;
+    pointsCount = 120;
+    intervalDays = 15;
   }
 
   const candles: CandleData[] = [];
+  let currentPrice = basePrice * 0.88;
   const now = new Date();
-  let currentPrice = basePrice * 0.85;
 
   for (let i = pointsCount; i >= 0; i--) {
     const d = new Date(now.getTime() - i * intervalDays * 24 * 60 * 60 * 1000);
     const dateStr = d.toISOString().split('T')[0];
 
-    const volatility = basePrice * 0.015;
-    const randomChange = (rng() - 0.48) * volatility;
-    const open = currentPrice;
-    const close = Math.max(10, open + randomChange);
-    const high = Math.max(open, close) + rng() * volatility * 0.5;
-    const low = Math.min(open, close) - rng() * volatility * 0.5;
-    const volume = Math.floor(rng() * 500000 + 100000);
+    const changePercent = (rng() - 0.48) * 0.03;
+    const open = Number(currentPrice.toFixed(2));
+    const close = Number((open * (1 + changePercent)).toFixed(2));
+    const high = Number((Math.max(open, close) * (1 + rng() * 0.012)).toFixed(2));
+    const low = Number((Math.min(open, close) * (1 - rng() * 0.012)).toFixed(2));
+    const volume = Math.floor(rng() * 400000 + 100000);
 
     candles.push({
       time: dateStr,
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
+      open,
+      high,
+      low,
+      close,
       volume,
     });
 
     currentPrice = close;
   }
 
+  // Ensure last candle matches basePrice exactly
   if (candles.length > 0) {
     const last = candles[candles.length - 1];
     last.close = basePrice;
@@ -186,86 +186,96 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
   return candles;
 }
 
-function generateIntradayCandles(basePrice: number, points: number, rng: () => number): CandleData[] {
+function generateIntradayCandles(basePrice: number, count: number, rng: () => number): CandleData[] {
   const candles: CandleData[] = [];
-  const startHour = 9;
-  const startMin = 15;
+  let currentPrice = basePrice * 0.995;
+  const baseTime = new Date();
+  baseTime.setHours(9, 15, 0, 0);
 
-  let currentPrice = basePrice * 0.994;
-  const todayStr = '2026-08-18';
+  for (let i = 0; i < count; i++) {
+    const timeStr = new Date(baseTime.getTime() + i * 5 * 60 * 1000).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
 
-  for (let i = 0; i < points; i++) {
-    const totalMinutes = startMin + i * 5;
-    const hour = startHour + Math.floor(totalMinutes / 60);
-    const min = totalMinutes % 60;
-    const timeFormatted = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-
-    const candleTime = `${todayStr} ${timeFormatted}`;
-
-    const volatility = basePrice * 0.003;
-    const randomChange = (rng() - 0.49) * volatility;
-    const open = currentPrice;
-    const close = Math.max(10, open + randomChange);
-    const high = Math.max(open, close) + rng() * volatility * 0.3;
-    const low = Math.min(open, close) - rng() * volatility * 0.3;
-    const volume = Math.floor(rng() * 45000 + 5000);
+    const delta = (rng() - 0.49) * 2.5;
+    const open = Number(currentPrice.toFixed(2));
+    const close = Number((open + delta).toFixed(2));
+    const high = Number((Math.max(open, close) + rng() * 1.2).toFixed(2));
+    const low = Number((Math.min(open, close) - rng() * 1.2).toFixed(2));
+    const volume = Math.floor(rng() * 15000 + 1500);
 
     candles.push({
-      time: candleTime,
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
+      time: timeStr,
+      open,
+      high,
+      low,
+      close,
       volume,
     });
 
     currentPrice = close;
   }
 
+  // Pin last candle to exact basePrice
+  if (candles.length > 0) {
+    const last = candles[candles.length - 1];
+    last.close = basePrice;
+    if (basePrice > last.high) last.high = basePrice;
+    if (basePrice < last.low) last.low = basePrice;
+  }
+
   return candles;
 }
 
-export function generateOrderBook(currentPrice: number): { bids: OrderBookItem[]; asks: OrderBookItem[] } {
+export function generateOrderBook(price: number): { bids: OrderBookItem[]; asks: OrderBookItem[] } {
   const bids: OrderBookItem[] = [];
   const asks: OrderBookItem[] = [];
 
   for (let i = 1; i <= 5; i++) {
-    const bidPrice = currentPrice - i * 0.25;
-    const askPrice = currentPrice + i * 0.25;
+    const bidPrice = Number((price - i * 0.35).toFixed(2));
+    const askPrice = Number((price + i * 0.35).toFixed(2));
+    const bidQty = Math.floor(Math.random() * 800 + 120);
+    const askQty = Math.floor(Math.random() * 800 + 120);
+
     bids.push({
-      price: Number(bidPrice.toFixed(2)),
-      quantity: Math.floor(Math.sin(i * 1.5) * 400 + 600),
-      orders: Math.floor(Math.cos(i) * 5 + 8),
+      price: bidPrice,
+      quantity: bidQty,
+      orders: Math.floor(Math.random() * 12 + 1),
     });
+
     asks.push({
-      price: Number(askPrice.toFixed(2)),
-      quantity: Math.floor(Math.cos(i * 1.5) * 400 + 600),
-      orders: Math.floor(Math.sin(i) * 5 + 8),
+      price: askPrice,
+      quantity: askQty,
+      orders: Math.floor(Math.random() * 12 + 1),
     });
   }
 
   return { bids, asks };
 }
 
-export function generateRecentTrades(currentPrice: number): RecentTrade[] {
+export function generateRecentTrades(price: number): RecentTrade[] {
   const trades: RecentTrade[] = [];
   const now = new Date();
 
   for (let i = 0; i < 8; i++) {
-    const time = new Date(now.getTime() - i * 3000).toLocaleTimeString('en-IN', {
+    const tradeTime = new Date(now.getTime() - i * 4000).toLocaleTimeString('en-IN', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
     });
-    const type: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL';
-    const price = currentPrice + (type === 'BUY' ? 0.1 : -0.1) * 0.5;
+
+    const isBuy = Math.random() > 0.48;
+    const delta = (Math.random() * 0.4 - 0.2) * (isBuy ? 1 : -1);
+    const tradePrice = Number((price + delta).toFixed(2));
 
     trades.push({
-      id: `tr-${i}`,
-      time,
-      price: Number(price.toFixed(2)),
-      quantity: Math.floor(i * 40 + 100),
-      type,
+      id: Math.random().toString(36).substring(2, 9),
+      time: tradeTime,
+      price: tradePrice,
+      quantity: Math.floor(Math.random() * 250 + 10),
+      type: isBuy ? 'BUY' : 'SELL',
     });
   }
 
