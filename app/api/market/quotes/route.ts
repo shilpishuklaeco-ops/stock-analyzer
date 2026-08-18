@@ -6,14 +6,19 @@ import { NiftyStock } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
-    const tokenCookie = request.cookies.get('upstox_access_token')?.value;
+    // 1. Prioritize Upstox 1-Year Analytics Token from Env, fallback to User Cookie
+    const analyticsToken = process.env.UPSTOX_ANALYTICS_TOKEN || process.env.NEXT_PUBLIC_UPSTOX_ANALYTICS_TOKEN;
+    const cookieToken = request.cookies.get('upstox_access_token')?.value;
+    const activeToken = analyticsToken || cookieToken;
+
     const symbolsList = Object.keys(UPSTOX_INSTRUMENT_MAP);
 
     let fetchedQuotes: Record<string, Partial<NiftyStock>> = {};
     let isLiveUpstoxFeed = false;
+    let tokenTypeUsed = 'None';
 
-    // 1. Attempt Upstox Batch Fetch if token is available
-    if (tokenCookie) {
+    // 2. Attempt Upstox Batch Fetch if any token (Analytics or OAuth) is available
+    if (activeToken) {
       const formattedSymbols = symbolsList.map((sym) => `NSE_EQ:${sym}`).join(',');
       try {
         const upstoxRes = await fetch(
@@ -21,7 +26,7 @@ export async function GET(request: NextRequest) {
           {
             headers: {
               Accept: 'application/json',
-              Authorization: `Bearer ${tokenCookie}`,
+              Authorization: `Bearer ${activeToken}`,
             },
             next: { revalidate: 5 },
           }
@@ -31,6 +36,8 @@ export async function GET(request: NextRequest) {
           const json = await upstoxRes.json();
           if (json.status === 'success' && json.data) {
             isLiveUpstoxFeed = true;
+            tokenTypeUsed = analyticsToken ? 'Upstox 1-Year Analytics Token' : 'Upstox OAuth User Token';
+
             for (const sym of symbolsList) {
               const item = json.data[`NSE_EQ:${sym}`];
               if (item) {
@@ -55,8 +62,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Phase 3: Supabase Database Night/Weekend Cache Lookup
-    if (isSupabaseConfigured && supabase) {
+    // 3. Supabase Database Night/Weekend Cache Lookup
+    if (!isLiveUpstoxFeed && isSupabaseConfigured && supabase) {
       try {
         const { data: dbData } = await supabase
           .from('stock_quotes_history')
@@ -81,7 +88,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Assemble merged Nifty 50 stock list
+    // 4. Assemble merged Nifty 50 stock list
     const updatedStocks: NiftyStock[] = NIFTY_50_STOCKS.map((stock) => {
       const live = fetchedQuotes[stock.symbol];
       if (live) {
@@ -96,7 +103,7 @@ export async function GET(request: NextRequest) {
       return stock;
     });
 
-    // Phase 3: Auto-persist live quotes into Supabase database in background
+    // Auto-persist live quotes into Supabase database in background
     if (isLiveUpstoxFeed && isSupabaseConfigured && supabase) {
       const recordsToInsert = updatedStocks.map((stk) => ({
         symbol: stk.symbol,
@@ -105,7 +112,7 @@ export async function GET(request: NextRequest) {
         change_percent: stk.changePercent,
         volume: stk.volume,
       }));
-      
+
       // Async background insert into Supabase
       supabase.from('stock_quotes_history').insert(recordsToInsert).then(() => {});
     }
@@ -113,7 +120,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      source: isLiveUpstoxFeed ? 'Upstox v2 API' : isSupabaseConfigured ? 'Supabase DB Cache' : 'NSE Baseline Engine',
+      source: isLiveUpstoxFeed
+        ? tokenTypeUsed
+        : isSupabaseConfigured
+        ? 'Supabase DB Cache'
+        : 'NSE Baseline Engine',
       stocks: updatedStocks,
     });
   } catch (error) {
