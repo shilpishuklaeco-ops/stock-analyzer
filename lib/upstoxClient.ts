@@ -24,15 +24,45 @@ export const UPSTOX_INSTRUMENT_MAP: Record<string, string> = {
   TATASTEEL: 'NSE_EQ|INE081A01020',
 };
 
+// Instrument Key Map for Indian Major Indices
+export const UPSTOX_INDEX_MAP: Record<string, string> = {
+  NIFTY50: 'NSE_INDEX|Nifty 50',
+  SENSEX: 'BSE_INDEX|SENSEX',
+  BANKNIFTY: 'NSE_INDEX|Nifty Bank',
+  NIFTYIT: 'NSE_INDEX|Nifty IT',
+  NIFTYAUTO: 'NSE_INDEX|Nifty Auto',
+  NIFTYPHARMA: 'NSE_INDEX|Nifty Pharma',
+};
+
 /**
- * Fetch Historical Candlestick Data from Upstox v2 API
+ * Fetch Authorized WebSocket URL for Upstox Market Data Feed V3
+ */
+export async function fetchV3WebSocketUrl(): Promise<{ success: boolean; authorizedUrl?: string; source?: string } | null> {
+  try {
+    const res = await fetch('/api/market/v3-authorize', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.success && json.authorizedUrl) {
+      return {
+        success: true,
+        authorizedUrl: json.authorizedUrl,
+        source: json.source,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn('Error fetching Upstox v3 WebSocket URL:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch Historical Candlestick Data from Upstox API
  */
 export async function fetchUpstoxCandles(
   symbol: string,
   timeframe: '1D' | '1W' | '1M' | '1Y' | 'ALL'
 ): Promise<CandleData[] | null> {
-  if (!isUpstoxConfigured) return null;
-
   const instrumentKey = UPSTOX_INSTRUMENT_MAP[symbol] || UPSTOX_INSTRUMENT_MAP['RELIANCE'];
   
   let unit = '1minute';
@@ -96,8 +126,6 @@ export async function fetchUpstoxCandles(
  * Fetch Real-time Market Quote from Upstox API
  */
 export async function fetchUpstoxMarketQuote(symbol: string): Promise<Partial<StockQuote> | null> {
-  if (!isUpstoxConfigured) return null;
-
   const instrumentKey = UPSTOX_INSTRUMENT_MAP[symbol] || UPSTOX_INSTRUMENT_MAP['RELIANCE'];
   const formattedSymbol = `NSE_EQ:${symbol}`;
 
