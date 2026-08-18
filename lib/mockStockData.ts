@@ -128,16 +128,16 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
 
   const rng = createSeededPRNG(`${symbol}-${timeframe}-2026-08-18`);
 
-  let pointsCount = 100;
+  if (timeframe === '1D') {
+    return generateIntradayCandles(basePrice, 78, rng, 5 * 60); // 5 min candles
+  } else if (timeframe === '1W') {
+    return generateIntradayCandles(basePrice, 35, rng, 60 * 60); // 1 hour candles
+  }
+
+  let pointsCount = 30;
   let intervalDays = 1;
 
-  if (timeframe === '1D') {
-    pointsCount = 78;
-    return generateIntradayCandles(basePrice, pointsCount, rng);
-  } else if (timeframe === '1W') {
-    pointsCount = 35;
-    intervalDays = 0.2;
-  } else if (timeframe === '1M') {
+  if (timeframe === '1M') {
     pointsCount = 30;
     intervalDays = 1;
   } else if (timeframe === '1Y') {
@@ -186,16 +186,16 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
   return candles;
 }
 
-function generateIntradayCandles(basePrice: number, count: number, rng: () => number): CandleData[] {
+function generateIntradayCandles(basePrice: number, count: number, rng: () => number, stepSeconds = 300): CandleData[] {
   const candles: CandleData[] = [];
   let currentPrice = basePrice * 0.995;
   
-  // Create intraday candles starting from 09:15 AM today
+  // Create intraday candles starting from count steps ago
   const now = new Date();
-  const baseTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15, 0, 0);
+  const startTime = new Date(now.getTime() - count * stepSeconds * 1000);
 
   for (let i = 0; i < count; i++) {
-    const candleTime = new Date(baseTime.getTime() + i * 5 * 60 * 1000);
+    const candleTime = new Date(startTime.getTime() + i * stepSeconds * 1000);
     const timestampInSeconds = Math.floor(candleTime.getTime() / 1000);
 
     const delta = (rng() - 0.49) * 2.5;

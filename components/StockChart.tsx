@@ -12,7 +12,7 @@ import {
   AreaSeries,
   HistogramSeries,
 } from 'lightweight-charts';
-import { Maximize2, Minimize2, Eye, EyeOff } from 'lucide-react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface StockChartProps {
   candles: CandleData[];
@@ -35,6 +35,25 @@ function parseChartTime(t: string | number): any {
     }
   }
   return t;
+}
+
+function sanitizeAndSortCandles<T extends { time: string | number }>(data: T[]): T[] {
+  const sorted = [...data].sort((a, b) => {
+    const tA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
+    const tB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
+    return tA - tB;
+  });
+
+  const unique: T[] = [];
+  const seen = new Set<string | number>();
+  for (const item of sorted) {
+    if (!seen.has(item.time)) {
+      seen.add(item.time);
+      unique.push(item);
+    }
+  }
+
+  return unique;
 }
 
 export const StockChart: React.FC<StockChartProps> = ({
@@ -86,11 +105,12 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     chartInstanceRef.current = chart;
 
-    // Format candle timestamps appropriately for lightweight-charts
-    const formattedData = candles.map((c) => ({
+    // Format & Sanitize candle timestamps appropriately for lightweight-charts
+    const rawFormattedData = candles.map((c) => ({
       ...c,
       time: parseChartTime(c.time),
     }));
+    const formattedData = sanitizeAndSortCandles(rawFormattedData);
 
     // Add Primary Stock Series based on chart type
     if (chartType === 'candlestick') {
@@ -145,10 +165,12 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     // SMA 20 Overlay
     if (showSMA20) {
-      const sma20Data = calculateSMA(candles, 20).map((item) => ({
-        time: parseChartTime(item.time),
-        value: item.value,
-      }));
+      const sma20Data = sanitizeAndSortCandles(
+        calculateSMA(candles, 20).map((item) => ({
+          time: parseChartTime(item.time),
+          value: item.value,
+        }))
+      );
 
       if (sma20Data.length > 0) {
         const sma20Series = chart.addSeries(LineSeries, {
@@ -162,10 +184,12 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     // SMA 50 Overlay
     if (showSMA50) {
-      const sma50Data = calculateSMA(candles, 50).map((item) => ({
-        time: parseChartTime(item.time),
-        value: item.value,
-      }));
+      const sma50Data = sanitizeAndSortCandles(
+        calculateSMA(candles, 50).map((item) => ({
+          time: parseChartTime(item.time),
+          value: item.value,
+        }))
+      );
 
       if (sma50Data.length > 0) {
         const sma50Series = chart.addSeries(LineSeries, {
@@ -179,10 +203,12 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     // EMA 20 Overlay
     if (showEMA20) {
-      const ema20Data = calculateEMA(candles, 20).map((item) => ({
-        time: parseChartTime(item.time),
-        value: item.value,
-      }));
+      const ema20Data = sanitizeAndSortCandles(
+        calculateEMA(candles, 20).map((item) => ({
+          time: parseChartTime(item.time),
+          value: item.value,
+        }))
+      );
 
       if (ema20Data.length > 0) {
         const ema20Series = chart.addSeries(LineSeries, {
