@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NIFTY_50_STOCKS, getNSESessionStatus, INITIAL_MARKET_INDICES, LiveIndexQuote } from '@/lib/mockStockData';
-import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, Bot } from 'lucide-react';
+import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, Bot, Layers } from 'lucide-react';
 import { LiveWebSocketStreamer } from './LiveWebSocketStreamer';
 
 interface NavbarProps {
@@ -85,6 +85,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock, ind
 
   const navLinks = [
     { href: '/', label: 'Live Terminal', icon: BarChart2 },
+    { href: '/option-chain', label: 'Option Chain', icon: Layers },
     { href: '/backtest', label: 'Backtest Lab', icon: History },
     { href: '/ai-signals', label: 'AI Signals', icon: Bot },
   ];
