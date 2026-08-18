@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NIFTY_50_STOCKS, getNSESessionStatus, INITIAL_MARKET_INDICES, LiveIndexQuote } from '@/lib/mockStockData';
 import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, Bot } from 'lucide-react';
+import { LiveWebSocketStreamer } from './LiveWebSocketStreamer';
 
 interface NavbarProps {
   activeSymbol: string;
@@ -247,6 +248,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock, ind
 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
+          {/* Live WebSocket Streamer Badge */}
+          <LiveWebSocketStreamer activeSymbol={activeSymbol} />
+
           {/* Supabase Status Badge */}
           <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950 border border-neutral-800 text-[11px]">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
