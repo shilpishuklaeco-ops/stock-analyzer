@@ -116,7 +116,7 @@ export const INITIAL_RELIANCE_QUOTE: StockQuote = {
   vwap: 1322.76,
   buyPercent: 64,
   sellPercent: 36,
-  lastUpdated: new Date().toLocaleTimeString('en-IN'),
+  lastUpdated: '15:30:00 PM',
 };
 
 /**
@@ -189,15 +189,14 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
 function generateIntradayCandles(basePrice: number, count: number, rng: () => number): CandleData[] {
   const candles: CandleData[] = [];
   let currentPrice = basePrice * 0.995;
-  const baseTime = new Date();
-  baseTime.setHours(9, 15, 0, 0);
+  
+  // Create intraday candles starting from 09:15 AM today
+  const now = new Date();
+  const baseTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15, 0, 0);
 
   for (let i = 0; i < count; i++) {
-    const timeStr = new Date(baseTime.getTime() + i * 5 * 60 * 1000).toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+    const candleTime = new Date(baseTime.getTime() + i * 5 * 60 * 1000);
+    const timestampInSeconds = Math.floor(candleTime.getTime() / 1000);
 
     const delta = (rng() - 0.49) * 2.5;
     const open = Number(currentPrice.toFixed(2));
@@ -207,7 +206,7 @@ function generateIntradayCandles(basePrice: number, count: number, rng: () => nu
     const volume = Math.floor(rng() * 15000 + 1500);
 
     candles.push({
-      time: timeStr,
+      time: timestampInSeconds as any,
       open,
       high,
       low,

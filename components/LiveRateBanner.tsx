@@ -136,9 +136,9 @@ export const LiveRateBanner: React.FC<LiveRateBannerProps> = ({ quote }) => {
                   {quote.changePercent.toFixed(2)}%)
                 </span>
               </div>
-              <div className="text-[10px] text-neutral-500 flex items-center gap-1 mt-0.5">
+              <div className="text-[10px] text-neutral-500 flex items-center gap-1 mt-0.5" suppressHydrationWarning>
                 <Clock className="w-3 h-3" />
-                <span>Updated: {quote.lastUpdated}</span>
+                <span suppressHydrationWarning>Updated: {quote.lastUpdated}</span>
               </div>
             </div>
           </div>
