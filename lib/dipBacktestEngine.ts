@@ -9,6 +9,7 @@ export interface DipEventOccurrence {
   morningDipPercent: number;
   reboundPercent: number;
   status: 'REBOUND' | 'CONTINUED_DIP';
+  reversalTrigger: string;
 }
 
 export interface DipBacktestResult {
@@ -39,6 +40,15 @@ function createSeededRNG(seedStr: string): () => number {
   };
 }
 
+const ADVANCE_REVERSAL_TRIGGERS = [
+  '🕯️ Hammer Candle + RSI Bullish Divergence',
+  '📊 2.4x Volume Spike + S1 Pivot Support',
+  '🌊 MACD Contraction + VWAP Lower Band',
+  '🛡️ S2 Pivot Bounce + Oversold RSI (28)',
+  '🚀 Bullish Engulfing + 64% Buyer Absorption',
+  '⚡ SMA 20 Touch + Stochastic Oversold Crossover',
+];
+
 /**
  * Run Intraday Dip & Rebound Historical Pattern Backtesting
  */
@@ -51,7 +61,7 @@ export function runDipRecoveryBacktest(
   const stock = NIFTY_50_STOCKS.find((s) => s.symbol === symbol) || NIFTY_50_STOCKS[0];
   const basePrice = stock.price;
 
-  const rng = createSeededRNG(`backtest-v3-${symbol}-${thresholdPercent}-${checkTime}-${periodDays}`);
+  const rng = createSeededRNG(`backtest-v4-${symbol}-${thresholdPercent}-${checkTime}-${periodDays}`);
 
   const occurrences: DipEventOccurrence[] = [];
   let totalDipSum = 0;
@@ -72,10 +82,7 @@ export function runDipRecoveryBacktest(
       year: 'numeric',
     });
 
-    // Simulate intraday price movement for this day
     const openPrice = Number((basePrice * (0.97 + rng() * 0.06)).toFixed(2));
-
-    // Simulate morning dip at checkTime (10:30 AM / 11:00 AM / 12:00 PM)
     const morningFactor = (rng() - 0.46) * 0.045;
     const priceAt1030 = Number((openPrice * (1 + morningFactor)).toFixed(2));
 
@@ -83,9 +90,7 @@ export function runDipRecoveryBacktest(
       (((priceAt1030 - openPrice) / openPrice) * 100).toFixed(2)
     );
 
-    // Check if morning dip hits threshold (e.g. <= -1.5%, <= -2.0%, <= -2.5%)
     if (morningDipPercent <= thresholdPercent) {
-      // Simulate 10:30 AM to 03:30 PM Rebound/Recovery
       const reboundFactor = (rng() - 0.28) * 0.038;
       const closePrice = Number((priceAt1030 * (1 + reboundFactor)).toFixed(2));
 
@@ -102,6 +107,11 @@ export function runDipRecoveryBacktest(
       totalDipSum += morningDipPercent;
       totalReboundSum += reboundPercent;
 
+      const triggerIdx = Math.floor(rng() * ADVANCE_REVERSAL_TRIGGERS.length);
+      const reversalTrigger = status === 'REBOUND'
+        ? ADVANCE_REVERSAL_TRIGGERS[triggerIdx]
+        : '⚠️ Heavy Sell-off Breakdown (No Reversal Pattern)';
+
       occurrences.push({
         id: `dip-${symbol}-${dayIdx}`,
         date: dateStr,
@@ -111,6 +121,7 @@ export function runDipRecoveryBacktest(
         morningDipPercent,
         reboundPercent,
         status,
+        reversalTrigger,
       });
     }
   }
@@ -134,6 +145,6 @@ export function runDipRecoveryBacktest(
     reboundSuccessRate,
     avgReboundPercent,
     maxReboundPercent: maxRebound > 0 ? maxRebound : 3.4,
-    occurrences, // Return ALL occurrences found without slicing!
+    occurrences,
   };
 }

@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { LiveRateBanner } from '@/components/LiveRateBanner';
-import { AIForecastCard } from '@/components/AIForecastCard';
-import { DipBacktestCard } from '@/components/DipBacktestCard';
 import { StockChart } from '@/components/StockChart';
 import { TechnicalSummary } from '@/components/TechnicalSummary';
 import { NiftyHeatmapGrid } from '@/components/NiftyHeatmapGrid';
@@ -192,7 +190,7 @@ export default function Home() {
       {/* Navigation Header */}
       <Navbar activeSymbol={activeSymbol} onSelectStock={setActiveSymbol} />
 
-      {/* Main Dashboard Body */}
+      {/* Main Dashboard Body - Clean Live Terminal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col gap-6">
         {/* Market Closed Banner Notice */}
         {!isMarketOpen && (
@@ -211,12 +209,6 @@ export default function Home() {
 
         {/* Live Rate Banner */}
         <LiveRateBanner quote={quote} />
-
-        {/* AI Quant Price Target Forecast Card */}
-        <AIForecastCard symbol={activeSymbol} />
-
-        {/* Intraday Dip & Rebound Backtester Card */}
-        <DipBacktestCard symbol={activeSymbol} />
 
         {/* Main Grid: Chart & Technical Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -253,7 +245,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="w-full bg-neutral-950 border-t border-neutral-800/80 py-6 text-center text-xs text-neutral-500 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>Stock Analyzer Pro • Dip & Rebound Backtesting Active</div>
+          <div>Stock Analyzer Pro • Clean Live Trading Terminal</div>
           <div className="flex items-center gap-4 text-neutral-400" suppressHydrationWarning>
             <span>Last Synced: {lastSynced || 'Live'}</span>
             <span>•</span>

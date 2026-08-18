@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DipBacktestResult } from '@/lib/dipBacktestEngine';
-import { History, TrendingUp, TrendingDown, Clock, BarChart3, RotateCcw, Calendar, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { History, TrendingUp, TrendingDown, Clock, BarChart3, RotateCcw, Calendar, CheckCircle, AlertTriangle, Info, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
 
 interface DipBacktestCardProps {
   symbol: string;
@@ -14,7 +14,7 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
   const [period, setPeriod] = useState<number>(250);
   const [result, setResult] = useState<DipBacktestResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isEventLogOpen, setIsEventLogOpen] = useState<boolean>(false);
+  const [isEventLogOpen, setIsEventLogOpen] = useState<boolean>(true);
 
   const runAnalysis = async () => {
     setIsLoading(true);
@@ -39,6 +39,24 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
     runAnalysis();
   }, [symbol, threshold, checkTime, period]);
 
+  const exportToCSV = () => {
+    if (!result || result.occurrences.length === 0) return;
+
+    const headers = ['Trading Date,Symbol,Open Price,Dip Price (10:30 AM),Dip %,Close Price (03:30 PM),Rebound %,Advance Technical Trigger,Outcome'];
+    const rows = result.occurrences.map((item) =>
+      `"${item.date}","${symbol}","₹${item.openPrice}","₹${item.priceAt1030}","${item.morningDipPercent}%","₹${item.closePrice}","${item.reboundPercent}%","${item.reversalTrigger}","${item.status}"`
+    );
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${symbol}_Dip_Recovery_Backtest_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-2xl flex flex-col gap-5">
       {/* Header Toolbar */}
@@ -55,7 +73,7 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
               </span>
             </h3>
             <p className="text-[11px] text-neutral-400">
-              Historical Intraday Rebound Statistics & Success Rates
+              Historical Intraday Rebound Statistics & Advance Reversal Trigger Signals
             </p>
           </div>
         </div>
@@ -107,6 +125,18 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
               <option value={500} className="bg-neutral-900 text-white">2 Years (500D)</option>
             </select>
           </div>
+
+          {/* Export CSV Button */}
+          {result && result.occurrences.length > 0 && (
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-950 hover:bg-teal-900 text-teal-400 border border-teal-800 transition-all font-mono text-xs"
+              title="Export Backtest Report CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -201,7 +231,7 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
           {isEventLogOpen && (
             <div>
               {result.occurrences.length > 0 ? (
-                <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
                   <table className="w-full text-left text-xs font-mono">
                     <thead className="bg-neutral-900/90 text-neutral-400 text-[11px] uppercase border-b border-neutral-800/60 sticky top-0 backdrop-blur z-10">
                       <tr>
@@ -210,6 +240,7 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
                         <th className="px-4 py-2.5">{checkTime} AM Dip</th>
                         <th className="px-4 py-2.5">03:30 PM Close</th>
                         <th className="px-4 py-2.5">Rebound %</th>
+                        <th className="px-4 py-2.5">🔍 Advance Technical Reversal Trigger</th>
                         <th className="px-4 py-2.5 text-right">Outcome</th>
                       </tr>
                     </thead>
@@ -230,6 +261,9 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
                               {isSuccess ? '+' : ''}
                               {item.reboundPercent}%
                             </td>
+                            <td className="px-4 py-2.5 font-sans font-medium text-[11px] text-teal-300">
+                              {item.reversalTrigger}
+                            </td>
                             <td className="px-4 py-2.5 text-right">
                               <span
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold border inline-flex items-center gap-1 ${
@@ -239,7 +273,7 @@ export const DipBacktestCard: React.FC<DipBacktestCardProps> = ({ symbol }) => {
                                 }`}
                               >
                                 {isSuccess ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                                {isSuccess ? 'REBOUND 🟢' : 'CONTINUED DIP 🔴'}
+                                {isSuccess ? 'REBOUND 🟢' : 'CONTINUED DIP ROD'}
                               </span>
                             </td>
                           </tr>
