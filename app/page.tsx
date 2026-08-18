@@ -89,21 +89,21 @@ export default function Home() {
     }
   };
 
-  // Sync active stock quote whenever niftyStocks (auto-synced) or activeSymbol changes
+  // Sync active stock quote — Preserves live moving price to prevent 5s reset bug!
   useEffect(() => {
     const targetStock = niftyStocks.find((s) => s.symbol === activeSymbol) || niftyStocks[0];
 
-    if (activeSymbol === 'RELIANCE') {
-      setQuote((prev) => ({
-        ...prev,
-        price: targetStock.price,
-        change: targetStock.change,
-        changePercent: targetStock.changePercent,
-        volume: targetStock.volume,
-        lastUpdated: lastSynced || prev.lastUpdated,
-      }));
-    } else {
-      setQuote({
+    setQuote((prevQuote) => {
+      // If same symbol and price is already moving live, preserve live price!
+      if (prevQuote.symbol === targetStock.symbol && prevQuote.price) {
+        return {
+          ...prevQuote,
+          lastUpdated: lastSynced || prevQuote.lastUpdated,
+        };
+      }
+
+      // Initial symbol switch
+      return {
         symbol: targetStock.symbol,
         name: targetStock.name,
         sector: targetStock.sector,
@@ -122,8 +122,8 @@ export default function Home() {
         buyPercent: Math.floor(Math.random() * 35 + 45),
         sellPercent: 0,
         lastUpdated: lastSynced || new Date().toLocaleTimeString('en-IN'),
-      });
-    }
+      };
+    });
 
     setOrderBook(generateOrderBook(targetStock.price));
     setRecentTrades(generateRecentTrades(targetStock.price));
@@ -141,8 +141,8 @@ export default function Home() {
 
     const interval = setInterval(() => {
       setQuote((prevQuote) => {
-        const tickDirection = Math.random() > 0.48 ? 1 : -1;
-        const tickDelta = Number((Math.random() * 0.75 * tickDirection).toFixed(2));
+        const tickDirection = Math.random() > 0.47 ? 1 : -1;
+        const tickDelta = Number(((Math.random() * 0.85 + 0.15) * tickDirection).toFixed(2));
         const newPrice = Math.max(1, Number((prevQuote.price + tickDelta).toFixed(2)));
         const newChange = Number((newPrice - prevQuote.prevClose).toFixed(2));
         const newChangePercent = Number(((newChange / prevQuote.prevClose) * 100).toFixed(2));
