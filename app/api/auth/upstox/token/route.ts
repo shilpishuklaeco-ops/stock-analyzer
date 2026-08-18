@@ -8,8 +8,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing code' }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_UPSTOX_API_KEY || '';
-    const apiSecret = process.env.UPSTOX_API_SECRET || '';
+    const apiKey =
+      process.env.NEXT_PUBLIC_UPSTOX_API_KEY ||
+      process.env.UPSTOX_API_KEY ||
+      '4dbed514-89f5-485d-b276-14539c3c0ddb';
+    const apiSecret = process.env.UPSTOX_API_SECRET || 'hh7wmkfksw';
     const targetRedirectUri = redirectUri || process.env.UPSTOX_REDIRECT_URI || 'http://localhost:3000';
 
     const tokenResponse = await fetch('https://api.upstox.com/v2/login/authorization/token', {
