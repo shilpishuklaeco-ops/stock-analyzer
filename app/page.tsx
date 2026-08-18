@@ -248,7 +248,7 @@ export default function Home() {
 
           {/* Technical Summary Panel (1 Column) */}
           <div className="w-full">
-            <TechnicalSummary indicators={indicators} currentPrice={quote.price} />
+            <TechnicalSummary indicators={indicators} currentPrice={quote.price} symbol={activeSymbol} />
           </div>
         </div>
 
