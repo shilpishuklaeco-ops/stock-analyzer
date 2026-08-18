@@ -17,9 +17,12 @@ export async function GET(request: NextRequest) {
     let isLiveUpstoxFeed = false;
     let tokenTypeUsed = 'None';
 
-    // 2. Attempt Upstox Batch Fetch if any token (Analytics or OAuth) is available
+    // 2. Attempt Upstox Batch Fetch using exact Instrument Keys (e.g. NSE_EQ|INE002A01018)
     if (activeToken) {
-      const formattedSymbols = symbolsList.map((sym) => `NSE_EQ:${sym}`).join(',');
+      const formattedSymbols = symbolsList
+        .map((sym) => UPSTOX_INSTRUMENT_MAP[sym] || `NSE_EQ:${sym}`)
+        .join(',');
+
       try {
         const upstoxRes = await fetch(
           `https://api.upstox.com/v2/market-quote/quotes?symbol=${encodeURIComponent(formattedSymbols)}`,
@@ -36,15 +39,18 @@ export async function GET(request: NextRequest) {
           const json = await upstoxRes.json();
           if (json.status === 'success' && json.data) {
             isLiveUpstoxFeed = true;
-            tokenTypeUsed = analyticsToken ? 'Upstox 1-Year Analytics Token' : 'Upstox OAuth User Token';
+            tokenTypeUsed = analyticsToken
+              ? 'Upstox 1-Year Analytics Token (Live)'
+              : 'Upstox OAuth User Token';
 
             for (const sym of symbolsList) {
+              // Upstox response key format: NSE_EQ:RELIANCE
               const item = json.data[`NSE_EQ:${sym}`];
               if (item) {
                 const ohlc = item.ohlc || {};
                 const lastPrice = item.last_price || ohlc.close || 0;
                 const prevClose = ohlc.close || lastPrice;
-                const netChange = item.net_change || (lastPrice - prevClose);
+                const netChange = item.net_change ?? (lastPrice - prevClose);
                 const pctChange = prevClose ? (netChange / prevClose) * 100 : 0;
 
                 fetchedQuotes[sym] = {
@@ -91,10 +97,10 @@ export async function GET(request: NextRequest) {
     // 4. Assemble merged Nifty 50 stock list
     const updatedStocks: NiftyStock[] = NIFTY_50_STOCKS.map((stock) => {
       const live = fetchedQuotes[stock.symbol];
-      if (live) {
+      if (live && typeof live.price === 'number') {
         return {
           ...stock,
-          price: live.price ?? stock.price,
+          price: live.price,
           change: live.change ?? stock.change,
           changePercent: live.changePercent ?? stock.changePercent,
           volume: live.volume || stock.volume,
