@@ -14,16 +14,20 @@ function createSeededPRNG(seedStr: string): () => number {
   };
 }
 
+export type NSESessionStatus = 'PRE_OPEN' | 'LIVE' | 'CLOSED';
+
 /**
- * Check if National Stock Exchange (NSE) is currently in open market session.
- * Regular Market Hours: Monday to Friday, 9:15 AM to 3:30 PM IST.
+ * Get detailed National Stock Exchange (NSE) trading session status.
+ * - 09:00 AM to 09:15 AM IST: PRE_OPEN
+ * - 09:15 AM to 03:30 PM IST: LIVE
+ * - Outside Market Hours & Weekends: CLOSED
  */
-export function isNSEMarketOpen(): boolean {
+export function getNSESessionStatus(): NSESessionStatus {
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Kolkata', hour12: false };
   const dayStr = new Intl.DateTimeFormat('en-US', { ...options, weekday: 'short' }).format(now);
 
-  if (dayStr === 'Sat' || dayStr === 'Sun') return false;
+  if (dayStr === 'Sat' || dayStr === 'Sun') return 'CLOSED';
 
   const timeFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
@@ -37,10 +41,21 @@ export function isNSEMarketOpen(): boolean {
   const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
 
   const totalMinutes = hour * 60 + minute;
-  const marketStart = 9 * 60 + 15; // 09:15 AM IST
+  const preOpenStart = 9 * 60;      // 09:00 AM IST
+  const marketStart = 9 * 60 + 15;  // 09:15 AM IST
   const marketEnd = 15 * 60 + 30;   // 03:30 PM IST
 
-  return totalMinutes >= marketStart && totalMinutes <= marketEnd;
+  if (totalMinutes >= preOpenStart && totalMinutes < marketStart) return 'PRE_OPEN';
+  if (totalMinutes >= marketStart && totalMinutes <= marketEnd) return 'LIVE';
+  return 'CLOSED';
+}
+
+/**
+ * Check if National Stock Exchange (NSE) is currently in open market session.
+ */
+export function isNSEMarketOpen(): boolean {
+  const status = getNSESessionStatus();
+  return status === 'LIVE' || status === 'PRE_OPEN';
 }
 
 // Calibrated Nifty 50 constituents data matching Real NSE Closing Prices
@@ -91,8 +106,7 @@ export function generateCandleData(symbol: string, timeframe: '1D' | '1W' | '1M'
   const stock = NIFTY_50_STOCKS.find((s) => s.symbol === symbol) || NIFTY_50_STOCKS[0];
   const basePrice = stock.price;
 
-  // Create deterministic PRNG seeded by symbol and timeframe
-  const rng = createSeededPRNG(`${symbol}-${timeframe}-2026-08-17-v2`);
+  const rng = createSeededPRNG(`${symbol}-${timeframe}-2026-08-18`);
 
   let pointsCount = 100;
   let intervalDays = 1;
@@ -158,7 +172,7 @@ function generateIntradayCandles(basePrice: number, points: number, rng: () => n
   const startMin = 15;
 
   let currentPrice = basePrice * 0.994;
-  const todayStr = '2026-08-17';
+  const todayStr = '2026-08-18';
 
   for (let i = 0; i < points; i++) {
     const totalMinutes = startMin + i * 5;

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NIFTY_50_STOCKS } from '@/lib/mockStockData';
+import { NIFTY_50_STOCKS, getNSESessionStatus } from '@/lib/mockStockData';
 import { Search, TrendingUp, ShieldCheck, LogIn, RefreshCw, BarChart2, History, Bot } from 'lucide-react';
 
 interface NavbarProps {
@@ -16,9 +16,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<'PRE_OPEN' | 'LIVE' | 'CLOSED'>('LIVE');
 
   useEffect(() => {
     setMounted(true);
+    setSessionStatus(getNSESessionStatus());
+
+    const interval = setInterval(() => {
+      setSessionStatus(getNSESessionStatus());
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const activeStock = NIFTY_50_STOCKS.find((s) => s.symbol === activeSymbol) || NIFTY_50_STOCKS[0];
@@ -51,13 +59,29 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock }) =
       {/* Top Ticker Ribbon */}
       <div className="bg-neutral-950 border-b border-neutral-800/60 py-1.5 px-4 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-6 text-[11px] font-mono whitespace-nowrap max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 text-emerald-400 font-bold">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span>NSE MARKET SESSION ACTIVE</span>
-          </div>
+          {/* Dynamic Session Status Badge */}
+          {sessionStatus === 'PRE_OPEN' ? (
+            <div className="flex items-center gap-2 text-amber-400 font-bold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+              <span>NSE PRE-OPEN SESSION (Price Discovery Active)</span>
+            </div>
+          ) : sessionStatus === 'LIVE' ? (
+            <div className="flex items-center gap-2 text-emerald-400 font-bold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>NSE MARKET SESSION ACTIVE</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-rose-400 font-bold">
+              <span className="h-2 w-2 rounded-full bg-rose-500"></span>
+              <span>NSE MARKET CLOSED (Opens 09:00 AM IST)</span>
+            </div>
+          )}
 
           <div className="text-neutral-600">|</div>
 

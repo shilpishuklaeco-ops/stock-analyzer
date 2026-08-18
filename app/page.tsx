@@ -15,16 +15,18 @@ import {
   generateOrderBook,
   generateRecentTrades,
   isNSEMarketOpen,
+  getNSESessionStatus,
 } from '@/lib/mockStockData';
 import { computeIndicatorSummary } from '@/lib/indicators';
 import { StockQuote, CandleData, NiftyStock, OrderBookItem, RecentTrade } from '@/lib/types';
 import { useLiveMarket } from '@/hooks/useLiveMarket';
-import { Moon } from 'lucide-react';
+import { Moon, Sunrise } from 'lucide-react';
 
 export default function Home() {
   const [activeSymbol, setActiveSymbolState] = useState<string>('RELIANCE');
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '1Y' | 'ALL'>('1D');
-  const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
+  const [isMarketOpen, setIsMarketOpen] = useState<boolean>(true);
+  const [sessionStatus, setSessionStatus] = useState<'PRE_OPEN' | 'LIVE' | 'CLOSED'>('LIVE');
   const [mounted, setMounted] = useState<boolean>(false);
 
   // Always Live Auto-Sync Market Hook
@@ -43,10 +45,16 @@ export default function Home() {
   });
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
 
-  // Hydration Safe Client Initialization
+  // Hydration Safe Client Initialization & Continuous Market Status Polling
   useEffect(() => {
     setMounted(true);
     setIsMarketOpen(isNSEMarketOpen());
+    setSessionStatus(getNSESessionStatus());
+
+    const statusInterval = setInterval(() => {
+      setIsMarketOpen(isNSEMarketOpen());
+      setSessionStatus(getNSESessionStatus());
+    }, 5000);
 
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -64,6 +72,8 @@ export default function Home() {
         setActiveSymbolState(targetSymbol);
       }
     }
+
+    return () => clearInterval(statusInterval);
   }, []);
 
   // Handler to update active symbol, sync URL & persist in localStorage
@@ -125,7 +135,7 @@ export default function Home() {
     setCandles(generatedCandles);
   }, [activeSymbol, timeframe]);
 
-  // Real-Time Live Ticker Price Simulation (Runs only during market open hours)
+  // Real-Time Live Ticker Price Simulation (Runs during PRE_OPEN & LIVE sessions)
   useEffect(() => {
     if (!isMarketOpen) return;
 
@@ -192,13 +202,27 @@ export default function Home() {
 
       {/* Main Dashboard Body - Clean Live Terminal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 flex flex-col gap-6">
-        {/* Market Closed Banner Notice */}
-        {!isMarketOpen && (
+        {/* Banner Notice for PRE_OPEN or CLOSED sessions */}
+        {sessionStatus === 'PRE_OPEN' && (
+          <div className="w-full bg-amber-950/40 border border-amber-800/60 rounded-xl px-4 py-2.5 text-xs text-amber-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sunrise className="w-4 h-4 text-amber-400" />
+              <span>
+                <strong>NSE Pre-Open Session Active (09:00 AM - 09:15 AM IST):</strong> Discovering stock opening prices and order accumulation. Regular continuous trading starts sharp at 09:15 AM IST.
+              </span>
+            </div>
+            <span className="font-mono text-[11px] text-neutral-400 hidden sm:inline" suppressHydrationWarning>
+              Auto-Synced: {lastSynced || 'Just Now'}
+            </span>
+          </div>
+        )}
+
+        {sessionStatus === 'CLOSED' && (
           <div className="w-full bg-rose-950/40 border border-rose-800/60 rounded-xl px-4 py-2.5 text-xs text-rose-300 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Moon className="w-4 h-4 text-rose-400" />
               <span>
-                <strong>NSE Market Closed:</strong> Trading session ended at 03:30 PM IST. Showing latest market close quotes. Live ticks resume tomorrow at 09:15 AM IST.
+                <strong>NSE Market Closed:</strong> Trading session ended at 03:30 PM IST. Showing latest market close quotes. Live ticks resume tomorrow at 09:00 AM IST (Pre-Open).
               </span>
             </div>
             <span className="font-mono text-[11px] text-neutral-400 hidden sm:inline" suppressHydrationWarning>
