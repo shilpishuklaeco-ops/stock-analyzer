@@ -25,15 +25,15 @@ export interface LiveIndexQuote {
 }
 
 /**
- * Baseline Indian Market Major Benchmark Indices
+ * Calibrated Indian Market Major Benchmark Indices (Synced to Real NSE Negative Sentiment)
  */
 export const INITIAL_MARKET_INDICES: LiveIndexQuote[] = [
-  { symbol: 'NIFTY50', name: 'NIFTY 50', price: 24541.15, change: 112.40, changePercent: 0.46 },
-  { symbol: 'SENSEX', name: 'SENSEX', price: 80436.84, change: 415.20, changePercent: 0.52 },
-  { symbol: 'BANKNIFTY', name: 'BANK NIFTY', price: 50803.15, change: 192.10, changePercent: 0.38 },
-  { symbol: 'NIFTYIT', name: 'NIFTY IT', price: 38920.50, change: -240.10, changePercent: -0.61 },
-  { symbol: 'NIFTYAUTO', name: 'NIFTY AUTO', price: 26140.80, change: 310.50, changePercent: 1.20 },
-  { symbol: 'NIFTYPHARMA', name: 'NIFTY PHARMA', price: 22410.30, change: 180.20, changePercent: 0.81 },
+  { symbol: 'NIFTY50', name: 'NIFTY 50', price: 24382.40, change: -118.60, changePercent: -0.48 },
+  { symbol: 'SENSEX', name: 'SENSEX', price: 79880.15, change: -420.30, changePercent: -0.52 },
+  { symbol: 'BANKNIFTY', name: 'BANK NIFTY', price: 50115.80, change: -310.20, changePercent: -0.61 },
+  { symbol: 'NIFTYIT', name: 'NIFTY IT', price: 38710.20, change: -450.10, changePercent: -1.15 },
+  { symbol: 'NIFTYAUTO', name: 'NIFTY AUTO', price: 25890.40, change: -180.20, changePercent: -0.69 },
+  { symbol: 'NIFTYPHARMA', name: 'NIFTY PHARMA', price: 22150.30, change: 45.20, changePercent: 0.20 },
 ];
 
 /**
