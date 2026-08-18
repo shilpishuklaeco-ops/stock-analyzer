@@ -18,7 +18,7 @@ import {
   getNSESessionStatus,
 } from '@/lib/mockStockData';
 import { computeIndicatorSummary } from '@/lib/indicators';
-import { StockQuote, CandleData, NiftyStock, OrderBookItem, RecentTrade } from '@/lib/types';
+import { StockQuote, CandleData, OrderBookItem, RecentTrade } from '@/lib/types';
 import { useLiveMarket } from '@/hooks/useLiveMarket';
 import { Moon, Sunrise } from 'lucide-react';
 
@@ -29,7 +29,7 @@ export default function Home() {
   const [sessionStatus, setSessionStatus] = useState<'PRE_OPEN' | 'LIVE' | 'CLOSED'>('LIVE');
   const [mounted, setMounted] = useState<boolean>(false);
 
-  // Always Live Auto-Sync Market Hook
+  // Always Live Auto-Sync Market Hook (Fetches 1-Year Upstox Analytics Stream)
   const { stocks: niftyStocks, lastSynced } = useLiveMarket();
 
   // Active Quote State
@@ -89,36 +89,32 @@ export default function Home() {
     }
   };
 
-  // Sync active stock quote — Preserves live moving price to prevent 5s reset bug!
+  // Sync active stock quote whenever niftyStocks (from Upstox API) or activeSymbol changes
   useEffect(() => {
     const targetStock = niftyStocks.find((s) => s.symbol === activeSymbol) || niftyStocks[0];
 
     setQuote((prevQuote) => {
-      // If same symbol and price is already moving live, preserve live price!
-      if (prevQuote.symbol === targetStock.symbol && prevQuote.price) {
-        return {
-          ...prevQuote,
-          lastUpdated: lastSynced || prevQuote.lastUpdated,
-        };
-      }
+      // Sync quote with latest live price from niftyStocks
+      const livePrice = targetStock.price;
+      const liveChange = targetStock.change;
+      const liveChangePercent = targetStock.changePercent;
 
-      // Initial symbol switch
       return {
         symbol: targetStock.symbol,
         name: targetStock.name,
         sector: targetStock.sector,
-        price: targetStock.price,
-        change: targetStock.change,
-        changePercent: targetStock.changePercent,
-        dayHigh: Number((targetStock.price * 1.018).toFixed(2)),
-        dayLow: Number((targetStock.price * 0.985).toFixed(2)),
-        yearHigh: Number((targetStock.price * 1.25).toFixed(2)),
-        yearLow: Number((targetStock.price * 0.75).toFixed(2)),
-        open: Number((targetStock.price * 0.995).toFixed(2)),
-        prevClose: Number((targetStock.price - targetStock.change).toFixed(2)),
+        price: livePrice,
+        change: liveChange,
+        changePercent: liveChangePercent,
+        dayHigh: Number((livePrice * 1.018).toFixed(2)),
+        dayLow: Number((livePrice * 0.985).toFixed(2)),
+        yearHigh: Number((livePrice * 1.25).toFixed(2)),
+        yearLow: Number((livePrice * 0.75).toFixed(2)),
+        open: Number((livePrice - liveChange).toFixed(2)),
+        prevClose: Number((livePrice - liveChange).toFixed(2)),
         volume: targetStock.volume,
         marketCap: `₹${(targetStock.marketCap / 100000).toFixed(2)} Lakh Cr`,
-        vwap: Number((targetStock.price * 0.998).toFixed(2)),
+        vwap: Number((livePrice * 0.998).toFixed(2)),
         buyPercent: Math.floor(Math.random() * 35 + 45),
         sellPercent: 0,
         lastUpdated: lastSynced || new Date().toLocaleTimeString('en-IN'),
@@ -135,7 +131,7 @@ export default function Home() {
     setCandles(generatedCandles);
   }, [activeSymbol, timeframe]);
 
-  // Real-Time Live Ticker Price Simulation (Runs during PRE_OPEN & LIVE sessions)
+  // Real-Time Live Ticker Price Simulation (Only runs during market open when intraday updates occur)
   useEffect(() => {
     if (!isMarketOpen) return;
 
