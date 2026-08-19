@@ -15,16 +15,16 @@ export async function GET(request: NextRequest) {
       UPSTOX_INDEX_MAP[symbol] ||
       UPSTOX_INSTRUMENT_MAP['RELIANCE'];
 
-    // Map timeframe to Upstox API interval unit
-    let unit = '5minute';
+    // Map timeframe to Upstox API interval unit (Valid Upstox units: 1minute, 30minute, day, week, month)
+    let unit = '1minute';
     let intervalDays = 1;
 
     if (timeframe === '1D') {
-      unit = '5minute';
-      intervalDays = 1;
+      unit = '1minute';
+      intervalDays = 7; // Fetch past 7 days to guarantee 1D intraday candles even on Mondays/holidays
     } else if (timeframe === '1W') {
       unit = '30minute';
-      intervalDays = 7;
+      intervalDays = 14;
     } else if (timeframe === '1M') {
       unit = 'day';
       intervalDays = 30;
@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
 
     if (analyticsToken) {
       try {
-        const upstoxUrl = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(
+        let upstoxUrl = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(
           instrumentKey
         )}/${unit}/${toDateStr}/${fromDateStr}`;
 
-        const res = await fetch(upstoxUrl, {
+        let res = await fetch(upstoxUrl, {
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${analyticsToken}`,
@@ -55,58 +55,78 @@ export async function GET(request: NextRequest) {
           next: { revalidate: 60 },
         });
 
-        if (res.ok) {
-          const json = await res.json();
-          if (json.status === 'success' && json.data && Array.isArray(json.data.candles)) {
-            const isIntraday = timeframe === '1D' || timeframe === '1W';
+        let json = res.ok ? await res.json() : null;
 
-            // Upstox returns candles [timestamp, open, high, low, close, volume, open_interest] newest first
-            const formattedCandles = json.data.candles
-              .map((c: [string, number, number, number, number, number]) => {
-                const rawTime = c[0];
-                let parsedTime: string | number;
+        // Fallback to daily candles if intraday 1minute/30minute is empty or fails
+        if (!json || json.status !== 'success' || !json.data || !Array.isArray(json.data.candles) || json.data.candles.length === 0) {
+          const fallbackUrl = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(
+            instrumentKey
+          )}/day/${toDateStr}`;
 
-                if (isIntraday) {
-                  // Convert ISO timestamp to UNIX epoch seconds for intraday precision
-                  parsedTime = Math.floor(new Date(rawTime).getTime() / 1000);
-                } else {
-                  // Format ISO timestamp to YYYY-MM-DD for daily Lightweight Charts
-                  parsedTime = rawTime.split('T')[0];
-                }
+          const fallbackRes = await fetch(fallbackUrl, {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${analyticsToken}`,
+            },
+            next: { revalidate: 60 },
+          });
 
-                return {
-                  time: parsedTime,
-                  open: c[1],
-                  high: c[2],
-                  low: c[3],
-                  close: c[4],
-                  volume: c[5] || 0,
-                };
-              })
-              .reverse(); // Reverse newest-first into ascending chronological order (oldest-first)
-
-            // Filter duplicates & ensure strictly ascending order
-            const uniqueCandles: typeof formattedCandles = [];
-            const seenTimes = new Set<string | number>();
-
-            for (const candle of formattedCandles) {
-              if (!seenTimes.has(candle.time) && !isNaN(Number(candle.close))) {
-                seenTimes.add(candle.time);
-                uniqueCandles.push(candle);
-              }
-            }
-
-            return NextResponse.json({
-              success: true,
-              candles: uniqueCandles,
-              source: 'Upstox Real Historical API (Analytics Token)',
-            });
+          if (fallbackRes.ok) {
+            json = await fallbackRes.json();
+            unit = 'day';
           }
+        }
+
+        if (json && json.status === 'success' && json.data && Array.isArray(json.data.candles)) {
+          const isIntraday = (timeframe === '1D' || timeframe === '1W') && unit !== 'day';
+
+          // Upstox returns candles [timestamp, open, high, low, close, volume, open_interest] newest first
+          const formattedCandles = json.data.candles
+            .map((c: [string, number, number, number, number, number]) => {
+              const rawTime = c[0];
+              let parsedTime: string | number;
+
+              if (isIntraday) {
+                // Convert ISO timestamp to UNIX epoch seconds for intraday precision
+                parsedTime = Math.floor(new Date(rawTime).getTime() / 1000);
+              } else {
+                // Format ISO timestamp to YYYY-MM-DD for daily Lightweight Charts
+                parsedTime = rawTime.split('T')[0];
+              }
+
+              return {
+                time: parsedTime,
+                open: c[1],
+                high: c[2],
+                low: c[3],
+                close: c[4],
+                volume: c[5] || 0,
+              };
+            })
+            .reverse();
+
+          // Filter duplicates & ensure strictly ascending order
+          const uniqueCandles: typeof formattedCandles = [];
+          const seenTimes = new Set<string | number>();
+
+          for (const candle of formattedCandles) {
+            if (!seenTimes.has(candle.time) && !isNaN(Number(candle.close))) {
+              seenTimes.add(candle.time);
+              uniqueCandles.push(candle);
+            }
+          }
+
+          return NextResponse.json({
+            success: true,
+            candles: uniqueCandles,
+            source: `Upstox Real Historical API (${unit})`,
+          });
         }
       } catch (err) {
         console.warn('Upstox Real Candle Fetch Error:', err);
       }
     }
+
 
     return NextResponse.json(
       { success: false, error: 'Upstox Candle Fetch Unavailable' },
