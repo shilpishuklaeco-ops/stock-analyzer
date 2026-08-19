@@ -1,70 +1,70 @@
 import { NewsItem } from './types';
 
-// Company Name & Search Queries for multi-source financial feeds
+// Company Name & Clean High-Yield Search Queries for multi-source financial feeds
 const COMPANY_SEARCH_QUERIES: Record<string, { name: string; query: string }> = {
   RELIANCE: {
     name: 'Reliance Industries Ltd',
-    query: 'Reliance Industries RELIANCE stock news NSE India Jio Retail',
+    query: 'Reliance Industries OR RELIANCE stock news Morgan Stanley Economic Times',
   },
   TCS: {
     name: 'Tata Consultancy Services Ltd',
-    query: 'Tata Consultancy Services TCS stock news NSE India IT sector',
+    query: 'Tata Consultancy Services OR TCS stock news Economic Times Moneycontrol',
   },
   INFY: {
     name: 'Infosys Ltd',
-    query: 'Infosys INFY stock news NSE India IT quarterly earnings',
+    query: 'Infosys OR INFY stock news Economic Times Mint',
   },
   HDFCBANK: {
     name: 'HDFC Bank Ltd',
-    query: 'HDFC Bank HDFCBANK stock news NSE India banking credit growth',
+    query: 'HDFC Bank OR HDFCBANK stock news Economic Times Moneycontrol',
   },
   ICICIBANK: {
     name: 'ICICI Bank Ltd',
-    query: 'ICICI Bank ICICIBANK stock news NSE India retail loans profit',
+    query: 'ICICI Bank OR ICICIBANK stock news Economic Times Mint',
   },
   SBIN: {
     name: 'State Bank of India',
-    query: 'State Bank of India SBIN stock news NSE India PSU bank',
+    query: 'State Bank of India OR SBIN stock news Economic Times Moneycontrol',
   },
   BHARTIARTL: {
     name: 'Bharti Airtel Ltd',
-    query: 'Bharti Airtel BHARTIARTL stock news NSE India 5G ARPU',
+    query: 'Bharti Airtel OR BHARTIARTL stock news Economic Times',
   },
   TATAMOTORS: {
     name: 'Tata Motors Ltd',
-    query: 'Tata Motors TATAMOTORS stock news NSE India JLR EV sales',
+    query: 'Tata Motors OR TATAMOTORS stock news Economic Times Morgan Stanley',
   },
   SUNPHARMA: {
     name: 'Sun Pharmaceutical Inds',
-    query: 'Sun Pharma SUNPHARMA stock news NSE India USFDA approval',
+    query: 'Sun Pharma OR SUNPHARMA stock news Economic Times',
   },
   ITC: {
     name: 'ITC Ltd',
-    query: 'ITC Ltd ITC stock news NSE India FMCG cigarette paperboards',
+    query: 'ITC Ltd OR ITC stock news Economic Times Moneycontrol',
   },
   'M&M': {
     name: 'Mahindra & Mahindra Ltd',
-    query: 'Mahindra Mahindra MM stock news NSE India SUV sales auto',
+    query: 'Mahindra & Mahindra OR MM stock news Economic Times',
   },
   HINDUNILVR: {
     name: 'Hindustan Unilever Ltd',
-    query: 'Hindustan Unilever HINDUNILVR stock news NSE India FMCG volume',
+    query: 'Hindustan Unilever OR HINDUNILVR stock news Economic Times',
   },
   'L&T': {
     name: 'Larsen & Toubro Ltd',
-    query: 'Larsen Toubro LT stock news NSE India order book infrastructure',
+    query: 'Larsen & Toubro OR LT stock news Economic Times',
   },
   NTPC: {
     name: 'NTPC Ltd',
-    query: 'NTPC stock news NSE India green energy capacity expansion',
+    query: 'NTPC stock news Economic Times',
   },
   POWERGRID: {
     name: 'Power Grid Corp of India',
-    query: 'Power Grid POWERGRID stock news NSE India power transmission',
+    query: 'Power Grid OR POWERGRID stock news Economic Times',
   },
   TATASTEEL: {
     name: 'Tata Steel Ltd',
-    query: 'Tata Steel TATASTEEL stock news NSE India steel prices UK plant',
+    query: 'Tata Steel OR TATASTEEL stock news Economic Times',
   },
 };
 
@@ -72,7 +72,7 @@ const BULLISH_KEYWORDS = [
   'profit', 'growth', 'gain', 'rally', 'surge', 'buy', 'target', 'revenue', 'expansion',
   'quarterly', 'dividend', 'bonus', 'record high', 'strong', 'upgrade', 'outperform',
   'positive', 'order', 'deal', 'green', 'soar', 'jump', 'rise', 'higher', 'bullish',
-  'recommend', 'outperforming', 'beat', 'climb'
+  'recommend', 'outperforming', 'beat', 'climb', 'reiterates', 'overweight'
 ];
 
 const BEARISH_KEYWORDS = [
@@ -100,39 +100,111 @@ export function analyzeSentiment(text: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL
 }
 
 /**
- * Multi-Source Live Stock News Fetcher (Google News + Financial Feeds)
+ * Multi-Source Live Stock News Fetcher (Google News + Direct Economic Times Stream)
  */
 export async function fetchLiveStockNews(symbol: string): Promise<NewsItem[]> {
   const config = COMPANY_SEARCH_QUERIES[symbol] || {
     name: symbol,
-    query: `${symbol} stock news NSE India`,
+    query: `${symbol} stock news Economic Times Moneycontrol`,
   };
 
   const encodedQuery = encodeURIComponent(config.query);
   const primaryRssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=en-IN&gl=IN&ceid=IN:en`;
+  const etDirectRssUrl = `https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146842.cms`;
 
   try {
-    const response = await fetch(primaryRssUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-      next: { revalidate: 60 }, // 1 minute fresh revalidation
-    });
+    const [googleRes, etRes] = await Promise.allSettled([
+      fetch(primaryRssUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        next: { revalidate: 60 },
+      }),
+      fetch(etDirectRssUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        next: { revalidate: 60 },
+      }),
+    ]);
 
-    if (response.ok) {
-      const xmlText = await response.text();
-      const parsedItems = parseRssXml(xmlText, symbol, config.name);
-      if (parsedItems.length > 0) {
-        return parsedItems.slice(0, 6);
+    let combinedItems: NewsItem[] = [];
+
+    if (googleRes.status === 'fulfilled' && googleRes.value.ok) {
+      const xmlText = await googleRes.value.text();
+      const googleItems = parseRssXml(xmlText, symbol, config.name);
+      combinedItems.push(...googleItems);
+    }
+
+    if (etRes.status === 'fulfilled' && etRes.value.ok) {
+      const etXmlText = await etRes.value.text();
+      const etItems = parseEtRssXml(etXmlText, symbol, config.name);
+      combinedItems.push(...etItems);
+    }
+
+    // Deduplicate by title key
+    const uniqueItems: NewsItem[] = [];
+    const seenTitles = new Set<string>();
+
+    for (const item of combinedItems) {
+      const normTitle = item.title.toLowerCase().slice(0, 40);
+      if (!seenTitles.has(normTitle)) {
+        seenTitles.add(normTitle);
+        uniqueItems.push(item);
       }
     }
+
+    if (uniqueItems.length > 0) {
+      return uniqueItems.slice(0, 9);
+    }
   } catch (err) {
-    console.warn(`Primary RSS fetch error for ${symbol}:`, err);
+    console.warn(`Multi-Source RSS fetch error for ${symbol}:`, err);
   }
 
   return getRichStockNewsFallback(symbol, config.name);
 }
+
+function parseEtRssXml(xml: string, symbol: string, companyName: string): NewsItem[] {
+  const items: NewsItem[] = [];
+  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+
+  for (let i = 0; i < itemMatches.length; i++) {
+    const rawItem = itemMatches[i];
+
+    const titleMatch = rawItem.match(/<title>([\s\S]*?)<\/title>/i);
+    const linkMatch = rawItem.match(/<link>([\s\S]*?)<\/link>/i);
+    const pubDateMatch = rawItem.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+
+    let title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+    const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '#';
+    const rawDate = pubDateMatch ? pubDateMatch[1].trim() : new Date().toUTCString();
+
+    const lowerTitle = title.toLowerCase();
+    const symbolLower = symbol.toLowerCase();
+    const companyLower = companyName.toLowerCase().split(' ')[0];
+
+    // Filter relevant ET articles matching the symbol or company
+    if (lowerTitle.includes(symbolLower) || lowerTitle.includes(companyLower) || i < 3) {
+      if (title) {
+        items.push({
+          id: `et-${symbol}-${i}-${Date.now()}`,
+          title,
+          link,
+          source: 'The Economic Times',
+          publishedAt: formatPubDate(rawDate),
+          snippet: `Live Economic Times coverage for ${companyName}.`,
+          sentiment: analyzeSentiment(title),
+          category: 'FINANCIAL_MEDIA',
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
 
 function parseRssXml(xml: string, symbol: string, companyName: string): NewsItem[] {
   const parsedItems: (NewsItem & { pubTime: number })[] = [];
