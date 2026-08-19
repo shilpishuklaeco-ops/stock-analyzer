@@ -9,6 +9,8 @@ import { NiftyHeatmapGrid } from '@/components/NiftyHeatmapGrid';
 import { OrderBook } from '@/components/OrderBook';
 import { StockNewsFeed } from '@/components/StockNewsFeed';
 import { FundamentalScorecard } from '@/components/FundamentalScorecard';
+import { PaperTradingDesk } from '@/components/PaperTradingDesk';
+
 import {
   NIFTY_50_STOCKS,
   INITIAL_RELIANCE_QUOTE,
@@ -237,7 +239,11 @@ export default function Home() {
         {/* Fundamental Health & Valuation Scorecard (Upstox Analytics Powered) */}
         <FundamentalScorecard symbol={activeSymbol} />
 
+        {/* Phase 2: Upstox Paper Trading & 1-Click GTT Orders Suite */}
+        <PaperTradingDesk quote={quote} />
+
         {/* Live Stock News & Sentiment Feed */}
+
         <StockNewsFeed symbol={activeSymbol} />
 
 

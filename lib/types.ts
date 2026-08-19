@@ -112,3 +112,41 @@ export interface ChartPanelConfig {
   timeframe: '1D' | '1W' | '1M' | '1Y' | 'ALL';
 }
 
+export interface PaperPosition {
+  id: string;
+  symbol: string;
+  companyName?: string;
+  quantity: number;
+  avgBuyPrice: number;
+  currentPrice: number;
+  unrealizedPnL: number;
+  unrealizedPnLPercent: number;
+  investedValue: number;
+  currentValue: number;
+}
+
+export interface PaperOrder {
+  id: string;
+  symbol: string;
+  type: 'BUY' | 'SELL';
+  orderCategory: 'MARKET' | 'LIMIT' | 'GTT_STOPLOSS_TARGET';
+  quantity: number;
+  price: number;
+  triggerPrice?: number;
+  stopLossPrice?: number;
+  targetPrice?: number;
+  status: 'EXECUTED' | 'TRIGGER_PENDING' | 'CANCELLED' | 'TARGET_HIT' | 'SL_HIT';
+  timestamp: string;
+}
+
+export interface PaperAccount {
+  cashBalance: number;
+  totalInvested: number;
+  totalCurrentValue: number;
+  realizedPnL: number;
+  unrealizedPnL: number;
+  positions: PaperPosition[];
+  orders: PaperOrder[];
+}
+
+
