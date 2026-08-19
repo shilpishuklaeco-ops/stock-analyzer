@@ -11,6 +11,10 @@ import {
   XCircle,
   ShieldAlert,
   RotateCcw,
+  Plus,
+  Minus,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 
 interface PaperTradingDeskProps {
@@ -22,13 +26,26 @@ const DEFAULT_CASH_BALANCE = 1000000; // ₹10,00,000 (10 Lakhs Virtual INR)
 export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => {
   const [activeTab, setActiveTab] = useState<'trade' | 'positions' | 'orders'>('trade');
 
-  // Form State
+  // Product & Order Types (Upstox Native)
+  const [productType, setProductType] = useState<'CNC' | 'MIS'>('CNC');
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
-  const [orderCategory, setOrderCategory] = useState<'MARKET' | 'LIMIT' | 'GTT_STOPLOSS_TARGET'>('GTT_STOPLOSS_TARGET');
+  const [orderCategory, setOrderCategory] = useState<'MARKET' | 'LIMIT' | 'SL' | 'SL-M'>('MARKET');
+
+  // Quantity Stepper
   const [quantity, setQuantity] = useState<number>(10);
+
+  // Price Inputs
   const [limitPrice, setLimitPrice] = useState<number>(quote.price);
-  const [targetPercent, setTargetPercent] = useState<number>(4.0);
-  const [stopLossPercent, setStopLossPercent] = useState<number>(2.0);
+  const [triggerPriceInput, setTriggerPriceInput] = useState<number>(quote.price);
+
+  // GTT Toggle & Dual Mode Inputs (Direct typing ₹ or %)
+  const [isGttEnabled, setIsGttEnabled] = useState<boolean>(true);
+  const [targetInputMode, setTargetInputMode] = useState<'RS' | 'PERCENT'>('PERCENT');
+  const [targetValue, setTargetValue] = useState<number>(4.0); // 4% default
+
+  const [stopLossInputMode, setStopLossInputMode] = useState<'RS' | 'PERCENT'>('PERCENT');
+  const [stopLossValue, setStopLossValue] = useState<number>(2.0); // 2% default
+
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Account State
@@ -61,27 +78,72 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
     }
   }, [account]);
 
-  // Keep Limit Price synced with selected quote price when quote changes
+  // Keep Limit & Trigger Price synced when quote price changes
   useEffect(() => {
     setLimitPrice(quote.price);
+    setTriggerPriceInput(quote.price);
   }, [quote.price, quote.symbol]);
 
-  // Calculate target & stoploss prices
-  const calculatedTargetPrice = useMemo(() => {
-    const base = orderCategory === 'LIMIT' ? limitPrice : quote.price;
-    return orderType === 'BUY'
-      ? Number((base * (1 + targetPercent / 100)).toFixed(2))
-      : Number((base * (1 - targetPercent / 100)).toFixed(2));
-  }, [quote.price, limitPrice, orderCategory, orderType, targetPercent]);
+  // Calculate Base Price for target/SL math
+  const baseExecutionPrice = useMemo(() => {
+    return orderCategory === 'LIMIT' || orderCategory === 'SL' ? limitPrice : quote.price;
+  }, [quote.price, limitPrice, orderCategory]);
 
-  const calculatedStopLossPrice = useMemo(() => {
-    const base = orderCategory === 'LIMIT' ? limitPrice : quote.price;
-    return orderType === 'BUY'
-      ? Number((base * (1 - stopLossPercent / 100)).toFixed(2))
-      : Number((base * (1 + stopLossPercent / 100)).toFixed(2));
-  }, [quote.price, limitPrice, orderCategory, orderType, stopLossPercent]);
+  // Calculate Target Price & Expected Profit Amount
+  const { calculatedTargetPrice, targetPercentVal, expectedProfitAmount } = useMemo(() => {
+    let targetPrice = baseExecutionPrice;
+    let targetPct = 0;
 
-  // Recalculate Live Position Values & P&L based on current LTP
+    if (targetInputMode === 'PERCENT') {
+      targetPct = targetValue;
+      targetPrice = orderType === 'BUY'
+        ? Number((baseExecutionPrice * (1 + targetPct / 100)).toFixed(2))
+        : Number((baseExecutionPrice * (1 - targetPct / 100)).toFixed(2));
+    } else {
+      targetPrice = targetValue;
+      targetPct = baseExecutionPrice > 0
+        ? Number((Math.abs(targetPrice - baseExecutionPrice) / baseExecutionPrice * 100).toFixed(2))
+        : 0;
+    }
+
+    const profitPerShare = Math.abs(targetPrice - baseExecutionPrice);
+    const totalProfit = Number((profitPerShare * quantity).toFixed(2));
+
+    return {
+      calculatedTargetPrice: targetPrice,
+      targetPercentVal: targetPct,
+      expectedProfitAmount: totalProfit,
+    };
+  }, [baseExecutionPrice, targetInputMode, targetValue, orderType, quantity]);
+
+  // Calculate Stop Loss Price & Expected Loss Amount
+  const { calculatedStopLossPrice, stopLossPercentVal, expectedLossAmount } = useMemo(() => {
+    let slPrice = baseExecutionPrice;
+    let slPct = 0;
+
+    if (stopLossInputMode === 'PERCENT') {
+      slPct = stopLossValue;
+      slPrice = orderType === 'BUY'
+        ? Number((baseExecutionPrice * (1 - slPct / 100)).toFixed(2))
+        : Number((baseExecutionPrice * (1 + slPct / 100)).toFixed(2));
+    } else {
+      slPrice = stopLossValue;
+      slPct = baseExecutionPrice > 0
+        ? Number((Math.abs(baseExecutionPrice - slPrice) / baseExecutionPrice * 100).toFixed(2))
+        : 0;
+    }
+
+    const lossPerShare = Math.abs(baseExecutionPrice - slPrice);
+    const totalLoss = Number((lossPerShare * quantity).toFixed(2));
+
+    return {
+      calculatedStopLossPrice: slPrice,
+      stopLossPercentVal: slPct,
+      expectedLossAmount: totalLoss,
+    };
+  }, [baseExecutionPrice, stopLossInputMode, stopLossValue, orderType, quantity]);
+
+  // Live Position Values & P&L
   const livePositions = useMemo(() => {
     return account.positions.map((pos) => {
       const currentLTP = pos.symbol === quote.symbol ? quote.price : pos.currentPrice;
@@ -115,10 +177,14 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
 
   const netPortfolioValue = account.cashBalance + totalCurrentValue;
 
-  // Handle 1-Click Order Submission
+  // Quantity Stepper Helpers
+  const incrementQty = (step: number) => setQuantity((prev) => Math.max(1, prev + step));
+  const decrementQty = (step: number) => setQuantity((prev) => Math.max(1, prev - step));
+
+  // Handle Order Execution
   const handlePlaceOrder = () => {
     setFeedbackMsg(null);
-    const executionPrice = orderCategory === 'LIMIT' ? limitPrice : quote.price;
+    const executionPrice = baseExecutionPrice;
     const orderTotalCost = executionPrice * quantity;
 
     if (orderType === 'BUY' && orderTotalCost > account.cashBalance) {
@@ -135,18 +201,18 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
       second: '2-digit',
     });
 
-    const isGTT = orderCategory === 'GTT_STOPLOSS_TARGET';
+    const categoryLabel = isGttEnabled ? 'GTT_STOPLOSS_TARGET' : orderCategory;
 
     const newOrder: PaperOrder = {
       id: `ord-${Date.now().toString(36)}`,
       symbol: quote.symbol,
       type: orderType,
-      orderCategory: orderCategory,
+      orderCategory: categoryLabel as any,
       quantity: quantity,
       price: executionPrice,
-      targetPrice: isGTT ? calculatedTargetPrice : undefined,
-      stopLossPrice: isGTT ? calculatedStopLossPrice : undefined,
-      status: isGTT ? 'TRIGGER_PENDING' : 'EXECUTED',
+      targetPrice: isGttEnabled ? calculatedTargetPrice : undefined,
+      stopLossPrice: isGttEnabled ? calculatedStopLossPrice : undefined,
+      status: isGttEnabled ? 'TRIGGER_PENDING' : 'EXECUTED',
       timestamp: timestampStr,
     };
 
@@ -198,7 +264,7 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
 
     setFeedbackMsg({
       type: 'success',
-      text: `${orderType} order for ${quantity} qty of ${quote.symbol} executed cleanly at ₹${executionPrice}!`,
+      text: `${orderType} order for ${quantity} qty of ${quote.symbol} (${productType}) executed at ₹${executionPrice}!`,
     });
   };
 
@@ -240,7 +306,7 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
     });
   };
 
-  // Reset Paper Trading Account Balance
+  // Reset Account Balance
   const handleResetAccount = () => {
     if (confirm('Are you sure you want to reset your Virtual Account back to ₹10,00,000?')) {
       const freshAccount: PaperAccount = {
@@ -260,20 +326,20 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
 
   return (
     <div className="bg-neutral-900/70 border border-neutral-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-4 shadow-xl backdrop-blur-md">
-      {/* Account Overview Header */}
+      {/* Upstox Pro Header Ribbon */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-emerald-950/80 border border-emerald-600/40 rounded-xl text-emerald-400">
+          <div className="p-2 bg-purple-950/80 border border-purple-600/40 rounded-xl text-purple-400">
             <Wallet className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-neutral-100">Upstox Paper Trading Desk</h3>
-              <span className="px-2 py-0.5 bg-emerald-950 border border-emerald-600/60 text-emerald-400 text-[10px] font-mono rounded-md">
-                ₹10L Virtual Sandbox
+              <h3 className="font-bold text-sm text-neutral-100">Upstox Pro Paper Order Window</h3>
+              <span className="px-2 py-0.5 bg-purple-950 border border-purple-600/60 text-purple-300 text-[10px] font-mono rounded-md">
+                Upstox Pro Replica UI
               </span>
             </div>
-            <p className="text-xs text-neutral-400">1-Click GTT Orders & Live P&L Simulation</p>
+            <p className="text-xs text-neutral-400">Direct Typing Input Controls • Zero Sliders</p>
           </div>
         </div>
 
@@ -312,36 +378,36 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
           onClick={() => setActiveTab('trade')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'trade'
-              ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
               : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
           }`}
         >
           <Zap className="w-3.5 h-3.5" />
-          1-Click GTT Desk ({quote.symbol})
+          Order Entry Desk ({quote.symbol})
         </button>
 
         <button
           onClick={() => setActiveTab('positions')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'positions'
-              ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
               : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" />
-          Open Positions ({livePositions.length})
+          Positions ({livePositions.length})
         </button>
 
         <button
           onClick={() => setActiveTab('orders')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'orders'
-              ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
               : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
           }`}
         >
           <Clock className="w-3.5 h-3.5" />
-          Orders & GTT Triggers ({account.orders.length})
+          Orders & Triggers ({account.orders.length})
         </button>
       </div>
 
@@ -364,176 +430,311 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
         </div>
       )}
 
-      {/* TAB 1: 1-CLICK GTT ORDER FORM */}
+      {/* TAB 1: UPSTOX PRO ORDER ENTRY DESK */}
       {activeTab === 'trade' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-neutral-950/60 p-4 rounded-xl border border-neutral-800/80">
-          {/* Left Column: Order Inputs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 bg-neutral-950/60 p-4 sm:p-5 rounded-xl border border-neutral-800/80">
+          {/* Left Panel: Order Configuration */}
           <div className="flex flex-col gap-4">
             {/* BUY / SELL Toggle */}
             <div className="grid grid-cols-2 gap-2 bg-neutral-900 p-1 rounded-xl border border-neutral-800">
               <button
                 onClick={() => setOrderType('BUY')}
-                className={`py-2 rounded-lg font-bold text-xs transition-all ${
+                className={`py-2.5 rounded-lg font-extrabold text-xs tracking-wide transition-all ${
                   orderType === 'BUY'
                     ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/20'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                BUY ({quote.symbol})
+                BUY {quote.symbol}
               </button>
 
               <button
                 onClick={() => setOrderType('SELL')}
-                className={`py-2 rounded-lg font-bold text-xs transition-all ${
+                className={`py-2.5 rounded-lg font-extrabold text-xs tracking-wide transition-all ${
                   orderType === 'SELL'
                     ? 'bg-rose-500 text-neutral-950 shadow-lg shadow-rose-500/20'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                SELL ({quote.symbol})
+                SELL {quote.symbol}
               </button>
             </div>
 
-            {/* Order Category Selector */}
-            <div className="flex items-center gap-1.5 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-xs">
-              {(['MARKET', 'LIMIT', 'GTT_STOPLOSS_TARGET'] as const).map((cat) => (
+            {/* Product Selector: Delivery (CNC) vs Intraday (MIS) */}
+            <div className="flex items-center justify-between gap-2 bg-neutral-900/90 p-2 rounded-xl border border-neutral-800 text-xs">
+              <span className="text-neutral-400 font-mono text-[11px] px-1">PRODUCT:</span>
+              <div className="flex items-center gap-1.5 flex-1">
                 <button
-                  key={cat}
-                  onClick={() => setOrderCategory(cat)}
-                  className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
-                    orderCategory === cat
-                      ? 'bg-neutral-800 text-emerald-400 border border-neutral-700'
+                  onClick={() => setProductType('CNC')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${
+                    productType === 'CNC'
+                      ? 'bg-purple-950 border border-purple-600/80 text-purple-300'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  {cat === 'GTT_STOPLOSS_TARGET' ? 'GTT (SL+TP)' : cat}
+                  Delivery (CNC)
                 </button>
-              ))}
-            </div>
-
-            {/* Quantity Input */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-mono text-neutral-400">QUANTITY (SHARES)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="10000"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-emerald-500"
-                />
-                <div className="flex items-center gap-1 text-[11px] font-mono">
-                  {[10, 50, 100, 500].map((qty) => (
-                    <button
-                      key={qty}
-                      onClick={() => setQuantity(qty)}
-                      className="px-2 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 rounded-lg"
-                    >
-                      {qty}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setProductType('MIS')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${
+                    productType === 'MIS'
+                      ? 'bg-purple-950 border border-purple-600/80 text-purple-300'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Intraday (MIS)
+                </button>
               </div>
             </div>
 
-            {/* Limit Price Input if LIMIT */}
-            {orderCategory === 'LIMIT' && (
+            {/* Order Category: Market / Limit / SL / SL-M */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-mono text-neutral-400">ORDER TYPE</label>
+              <div className="flex items-center gap-1.5 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-xs">
+                {(['MARKET', 'LIMIT', 'SL', 'SL-M'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setOrderCategory(cat)}
+                    className={`flex-1 py-1.5 rounded-lg font-semibold transition-all ${
+                      orderCategory === cat
+                        ? 'bg-neutral-800 text-purple-300 border border-neutral-700'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity Input with Stepper [+] and [-] Buttons */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-mono text-neutral-400">QUANTITY (SHARES)</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => decrementQty(1)}
+                  className="p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-xl text-neutral-300 font-bold transition-all"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+
+                <input
+                  type="number"
+                  min="1"
+                  max="100000"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-sm font-mono font-bold text-neutral-100 text-center focus:outline-none focus:border-purple-500"
+                />
+
+                <button
+                  onClick={() => incrementQty(1)}
+                  className="p-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-xl text-neutral-300 font-bold transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Qty Preset Chips */}
+              <div className="flex items-center gap-1 text-[11px] font-mono mt-1">
+                {[10, 50, 100, 500, 1000].map((qty) => (
+                  <button
+                    key={qty}
+                    onClick={() => setQuantity(qty)}
+                    className="flex-1 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition-all"
+                  >
+                    +{qty}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Limit Price Input if LIMIT or SL */}
+            {(orderCategory === 'LIMIT' || orderCategory === 'SL') && (
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-mono text-neutral-400">LIMIT EXECUTION PRICE (₹)</label>
+                <label className="text-[11px] font-mono text-neutral-400">LIMIT PRICE (₹)</label>
                 <input
                   type="number"
                   step="0.05"
                   value={limitPrice}
                   onChange={(e) => setLimitPrice(parseFloat(e.target.value) || quote.price)}
-                  className="bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-emerald-500"
+                  className="bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+            )}
+
+            {/* Trigger Price Input if SL or SL-M */}
+            {(orderCategory === 'SL' || orderCategory === 'SL-M') && (
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-mono text-neutral-400">TRIGGER PRICE (₹)</label>
+                <input
+                  type="number"
+                  step="0.05"
+                  value={triggerPriceInput}
+                  onChange={(e) => setTriggerPriceInput(parseFloat(e.target.value) || quote.price)}
+                  className="bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-purple-500"
                 />
               </div>
             )}
           </div>
 
-          {/* Right Column: GTT Stop-Loss & Target Controls */}
-          <div className="flex flex-col gap-4">
-            {orderCategory === 'GTT_STOPLOSS_TARGET' && (
-              <div className="flex flex-col gap-3 bg-neutral-900/90 p-3.5 rounded-xl border border-neutral-800">
-                <div className="flex items-center justify-between text-xs font-semibold text-neutral-300 border-b border-neutral-800 pb-2">
-                  <span className="flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                    GTT Auto Trigger Conditions
-                  </span>
-                  <span className="text-[10px] text-emerald-400 font-mono">Real-time Upstox Feed</span>
-                </div>
-
-                {/* Target Profit % */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] font-mono">
-                    <span className="text-emerald-400 font-bold">TARGET PROFIT (+{targetPercent}%)</span>
-                    <span className="text-neutral-300">₹{calculatedTargetPrice}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.5"
-                    value={targetPercent}
-                    onChange={(e) => setTargetPercent(parseFloat(e.target.value))}
-                    className="accent-emerald-500 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
-                  />
-                </div>
-
-                {/* Stop Loss % */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] font-mono">
-                    <span className="text-rose-400 font-bold">STOP LOSS (-{stopLossPercent}%)</span>
-                    <span className="text-neutral-300">₹{calculatedStopLossPrice}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="15"
-                    step="0.5"
-                    value={stopLossPercent}
-                    onChange={(e) => setStopLossPercent(parseFloat(e.target.value))}
-                    className="accent-rose-500 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Summary Ticket */}
-            <div className="bg-neutral-900/60 p-3 rounded-xl border border-neutral-800/80 flex flex-col gap-1.5 text-xs font-mono">
-              <div className="flex justify-between text-neutral-400">
-                <span>STOCK LTP</span>
-                <span className="font-bold text-neutral-100">₹{quote.price}</span>
-              </div>
-
-              <div className="flex justify-between text-neutral-400">
-                <span>TOTAL ORDER COST</span>
-                <span className="font-bold text-neutral-100">
-                  ₹{(quote.price * quantity).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          {/* Right Panel: Smart GTT Protection Inputs (Upstox Pro Direct Typing Input Boxes) */}
+          <div className="flex flex-col gap-4 justify-between">
+            <div className="flex flex-col gap-3.5 bg-neutral-900/90 p-4 rounded-xl border border-neutral-800">
+              {/* Header & GTT Toggle Switch */}
+              <div className="flex items-center justify-between text-xs font-semibold text-neutral-300 border-b border-neutral-800 pb-2.5">
+                <span className="flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-amber-400" />
+                  Upstox Smart GTT Protection
                 </span>
+                <button
+                  onClick={() => setIsGttEnabled(!isGttEnabled)}
+                  className="flex items-center gap-1 text-xs font-mono transition-all text-neutral-300 hover:text-white"
+                >
+                  {isGttEnabled ? (
+                    <ToggleRight className="w-6 h-6 text-purple-400" />
+                  ) : (
+                    <ToggleLeft className="w-6 h-6 text-neutral-600" />
+                  )}
+                  <span>{isGttEnabled ? 'ENABLED' : 'DISABLED'}</span>
+                </button>
               </div>
 
-              <div className="flex justify-between text-neutral-400">
-                <span>MARGIN AVAILABLE</span>
-                <span className="font-bold text-emerald-400">
-                  ₹{account.cashBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </span>
-              </div>
+              {isGttEnabled && (
+                <>
+                  {/* DIRECT TARGET INPUT FIELD (No Slider!) */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-emerald-400">TARGET PROFIT</span>
+                      {/* Mode Switcher: ₹ vs % */}
+                      <div className="flex items-center bg-neutral-950 p-0.5 rounded-lg border border-neutral-800 text-[10px] font-mono">
+                        <button
+                          onClick={() => setTargetInputMode('PERCENT')}
+                          className={`px-2 py-0.5 rounded ${
+                            targetInputMode === 'PERCENT'
+                              ? 'bg-emerald-950 text-emerald-400 font-bold border border-emerald-600/60'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          % Percent
+                        </button>
+                        <button
+                          onClick={() => setTargetInputMode('RS')}
+                          className={`px-2 py-0.5 rounded ${
+                            targetInputMode === 'RS'
+                              ? 'bg-emerald-950 text-emerald-400 font-bold border border-emerald-600/60'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          ₹ Price
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={targetInputMode === 'PERCENT' ? '0.5' : '0.1'}
+                        value={targetValue}
+                        onChange={(e) => setTargetValue(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-emerald-500"
+                        placeholder={targetInputMode === 'PERCENT' ? 'Target % (e.g. 4.0)' : 'Target ₹ Price (e.g. 2550)'}
+                      />
+                    </div>
+
+                    {/* Live Expected Profit Amount Badge */}
+                    <div className="flex items-center justify-between text-[11px] font-mono bg-emerald-950/40 border border-emerald-600/40 p-2 rounded-lg text-emerald-300">
+                      <span>Target Price: ₹{calculatedTargetPrice} ({targetPercentVal}%)</span>
+                      <span className="font-bold">+₹{expectedProfitAmount.toLocaleString('en-IN')} Profit</span>
+                    </div>
+                  </div>
+
+                  {/* DIRECT STOP LOSS INPUT FIELD (No Slider!) */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-rose-400">STOP LOSS PROTECTION</span>
+                      {/* Mode Switcher: ₹ vs % */}
+                      <div className="flex items-center bg-neutral-950 p-0.5 rounded-lg border border-neutral-800 text-[10px] font-mono">
+                        <button
+                          onClick={() => setStopLossInputMode('PERCENT')}
+                          className={`px-2 py-0.5 rounded ${
+                            stopLossInputMode === 'PERCENT'
+                              ? 'bg-rose-950 text-rose-400 font-bold border border-rose-600/60'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          % Percent
+                        </button>
+                        <button
+                          onClick={() => setStopLossInputMode('RS')}
+                          className={`px-2 py-0.5 rounded ${
+                            stopLossInputMode === 'RS'
+                              ? 'bg-rose-950 text-rose-400 font-bold border border-rose-600/60'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          ₹ Price
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step={stopLossInputMode === 'PERCENT' ? '0.5' : '0.1'}
+                        value={stopLossValue}
+                        onChange={(e) => setStopLossValue(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-neutral-100 focus:outline-none focus:border-rose-500"
+                        placeholder={stopLossInputMode === 'PERCENT' ? 'SL % (e.g. 2.0)' : 'SL ₹ Price (e.g. 2450)'}
+                      />
+                    </div>
+
+                    {/* Live Expected Loss Amount Badge */}
+                    <div className="flex items-center justify-between text-[11px] font-mono bg-rose-950/40 border border-rose-600/40 p-2 rounded-lg text-rose-300">
+                      <span>Stop Loss Price: ₹{calculatedStopLossPrice} ({stopLossPercentVal}%)</span>
+                      <span className="font-bold">-₹{expectedLossAmount.toLocaleString('en-IN')} Loss</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Submit Button */}
-            <button
-              onClick={handlePlaceOrder}
-              className={`w-full py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl flex items-center justify-center gap-2 ${
-                orderType === 'BUY'
-                  ? 'bg-emerald-500 hover:bg-emerald-400 text-neutral-950 shadow-emerald-500/20'
-                  : 'bg-rose-500 hover:bg-rose-400 text-neutral-950 shadow-rose-500/20'
-              }`}
-            >
-              <Zap className="w-4 h-4 fill-current" />
-              1-Click {orderType} {quantity} Shares of {quote.symbol}
-            </button>
+            {/* Upstox Action & Margin Summary */}
+            <div className="flex flex-col gap-3">
+              <div className="bg-neutral-900/60 p-3 rounded-xl border border-neutral-800/80 flex flex-col gap-1 text-xs font-mono">
+                <div className="flex justify-between text-neutral-400">
+                  <span>EXECUTION PRICE ({orderCategory})</span>
+                  <span className="font-bold text-neutral-100">₹{baseExecutionPrice}</span>
+                </div>
+
+                <div className="flex justify-between text-neutral-400">
+                  <span>REQUIRED MARGIN</span>
+                  <span className="font-bold text-neutral-100">
+                    ₹{(baseExecutionPrice * quantity).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-neutral-400">
+                  <span>AVAILABLE BALANCE</span>
+                  <span className="font-bold text-purple-400">
+                    ₹{account.cashBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Submit Upstox Action Button */}
+              <button
+                onClick={handlePlaceOrder}
+                className={`w-full py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl flex items-center justify-center gap-2 ${
+                  orderType === 'BUY'
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-neutral-950 shadow-emerald-500/20'
+                    : 'bg-rose-500 hover:bg-rose-400 text-neutral-950 shadow-rose-500/20'
+                }`}
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                {orderType} {quantity} SHARES OF {quote.symbol} @ ₹{baseExecutionPrice}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -543,7 +744,7 @@ export const PaperTradingDesk: React.FC<PaperTradingDeskProps> = ({ quote }) => 
         <div className="flex flex-col gap-3">
           {livePositions.length === 0 ? (
             <div className="p-8 text-center bg-neutral-950/60 border border-neutral-800 rounded-xl text-neutral-500 text-xs font-mono">
-              No active paper positions. Place a 1-Click GTT order above to start virtual paper trading!
+              No active paper positions. Place an order above to start virtual paper trading!
             </div>
           ) : (
             <div className="overflow-x-auto border border-neutral-800 rounded-xl">
