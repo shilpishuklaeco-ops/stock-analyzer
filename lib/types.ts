@@ -85,7 +85,9 @@ export interface NewsItem {
   publishedAt: string;
   snippet: string;
   sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  category?: 'WSB_RETAIL' | 'FINANCIAL_MEDIA' | 'CORPORATE';
 }
+
 
 export interface FundamentalData {
   symbol: string;

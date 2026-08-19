@@ -13,6 +13,7 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'BULLISH' | 'BEARISH'>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'WSB_RETAIL' | 'FINANCIAL_MEDIA'>('ALL');
 
   const fetchNews = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -38,15 +39,22 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
     fetchNews();
   }, [symbol]);
 
-  // Sentiment Breakdown
+  // Counts
+  const wsbCount = news.filter((n) => n.category === 'WSB_RETAIL' || n.source.includes('WSB')).length;
   const bullishCount = news.filter((n) => n.sentiment === 'BULLISH').length;
   const bearishCount = news.filter((n) => n.sentiment === 'BEARISH').length;
-  const neutralCount = news.filter((n) => n.sentiment === 'NEUTRAL').length;
 
-  const filteredNews =
-    activeFilter === 'ALL'
-      ? news
-      : news.filter((n) => n.sentiment === activeFilter);
+  const filteredNews = news.filter((item) => {
+    const matchesSentiment = activeFilter === 'ALL' || item.sentiment === activeFilter;
+    const matchesCategory =
+      categoryFilter === 'ALL'
+        ? true
+        : categoryFilter === 'WSB_RETAIL'
+        ? item.category === 'WSB_RETAIL' || item.source.includes('WSB')
+        : item.category !== 'WSB_RETAIL' && !item.source.includes('WSB');
+
+    return matchesSentiment && matchesCategory;
+  });
 
   const bullishPercent = news.length > 0 ? Math.round((bullishCount / news.length) * 100) : 50;
 
@@ -57,15 +65,41 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
         <div className="flex items-center gap-2">
           <Newspaper className="w-4 h-4 text-emerald-400" />
           <h3 className="font-bold text-sm text-neutral-100 tracking-tight">
-            Live Market News & Sentiment Analysis
+            Live Market News & WSB Retail Sentiment
           </h3>
           <span className="text-xs px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 font-mono font-bold">
             {symbol}
           </span>
         </div>
 
-        {/* Interactive Sentiment Filter Tabs */}
-        <div className="flex items-center gap-2 text-xs">
+        {/* Source Category & Sentiment Filter Controls */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {/* Category Tabs: All vs WSB Buzz vs Media */}
+          <div className="flex items-center gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800 font-mono">
+            <button
+              onClick={() => setCategoryFilter('ALL')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                categoryFilter === 'ALL'
+                  ? 'bg-neutral-800 text-white border border-neutral-700'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              All News ({news.length})
+            </button>
+
+            <button
+              onClick={() => setCategoryFilter('WSB_RETAIL')}
+              className={`px-2.5 py-1 text-xs font-extrabold rounded-lg transition-all flex items-center gap-1 ${
+                categoryFilter === 'WSB_RETAIL'
+                  ? 'bg-purple-950 text-purple-300 border border-purple-600/80 shadow-md shadow-purple-950'
+                  : 'text-purple-400/80 hover:text-purple-300'
+              }`}
+            >
+              🚀 WSB & Retail Buzz ({wsbCount})
+            </button>
+          </div>
+
+          {/* Sentiment Filter Tabs */}
           <div className="flex items-center gap-1 bg-neutral-950 p-1 rounded-xl border border-neutral-800">
             <button
               onClick={() => setActiveFilter('ALL')}
@@ -75,7 +109,7 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              All ({news.length})
+              All Sentiments
             </button>
             <button
               onClick={() => setActiveFilter('BULLISH')}
@@ -114,10 +148,10 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
         <div className="bg-neutral-950/60 p-3 rounded-xl border border-neutral-800/80 text-xs">
           <div className="flex justify-between items-center text-neutral-400 mb-1.5 font-medium">
             <span className="flex items-center gap-1">
-              Overall News Sentiment Ratio
+              Overall Media & WSB Retail Sentiment Ratio
             </span>
             <span className="font-mono text-emerald-400 font-semibold">
-              {bullishPercent}% Positive Media Coverage
+              {bullishPercent}% Positive Bullish Sentiment
             </span>
           </div>
           <div className="w-full h-2 bg-neutral-900 rounded-full overflow-hidden flex border border-neutral-800">
@@ -141,10 +175,11 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
           ))}
         </div>
       ) : filteredNews.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredNews.map((item) => {
             const isBullish = item.sentiment === 'BULLISH';
             const isBearish = item.sentiment === 'BEARISH';
+            const isWsb = item.category === 'WSB_RETAIL' || item.source.includes('WSB');
 
             return (
               <a
@@ -152,13 +187,21 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-4 rounded-xl bg-neutral-950 border border-neutral-800/80 hover:border-neutral-700 transition-all flex flex-col justify-between group hover:scale-[1.01]"
+                className={`p-4 rounded-xl bg-neutral-950 border transition-all flex flex-col justify-between group hover:scale-[1.01] ${
+                  isWsb ? 'border-purple-900/60 hover:border-purple-600/80 shadow-md shadow-purple-950/40' : 'border-neutral-800/80 hover:border-neutral-700'
+                }`}
               >
                 <div>
                   {/* Top Meta: Source & Time */}
                   <div className="flex items-center justify-between text-[11px] mb-2">
-                    <span className="font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/50">
-                      {item.source}
+                    <span
+                      className={`font-semibold px-2 py-0.5 rounded border ${
+                        isWsb
+                          ? 'bg-purple-950 text-purple-300 border-purple-600/60'
+                          : 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50'
+                      }`}
+                    >
+                      {isWsb ? '🔥 WSB RETAIL BUZZ' : item.source}
                     </span>
                     <span className="text-neutral-500 font-mono flex items-center gap-1">
                       <Clock className="w-3 h-3" />
@@ -202,10 +245,11 @@ export const StockNewsFeed: React.FC<StockNewsFeedProps> = ({ symbol }) => {
           })}
         </div>
       ) : (
-        <div className="py-8 text-center text-sm text-neutral-500">
-          No {activeFilter.toLowerCase()} news articles found for {symbol} right now.
+        <div className="py-8 text-center text-sm text-neutral-500 font-mono">
+          No news articles found for {symbol} under the selected filters.
         </div>
       )}
     </div>
   );
 };
+
