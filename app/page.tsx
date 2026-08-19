@@ -8,21 +8,26 @@ import { TechnicalSummary } from '@/components/TechnicalSummary';
 import { NiftyHeatmapGrid } from '@/components/NiftyHeatmapGrid';
 import { OrderBook } from '@/components/OrderBook';
 import { StockNewsFeed } from '@/components/StockNewsFeed';
+import { FundamentalScorecard } from '@/components/FundamentalScorecard';
 import {
   NIFTY_50_STOCKS,
   INITIAL_RELIANCE_QUOTE,
-  generateCandleData,
   generateOrderBook,
   generateRecentTrades,
   isNSEMarketOpen,
   getNSESessionStatus,
 } from '@/lib/mockStockData';
+
 import { computeIndicatorSummary } from '@/lib/indicators';
 import { StockQuote, CandleData, OrderBookItem, RecentTrade } from '@/lib/types';
+import { fetchUpstoxCandles, fetchUpstoxMarketDepth } from '@/lib/upstoxClient';
 import { useLiveMarket } from '@/hooks/useLiveMarket';
 import { Moon, Sunrise } from 'lucide-react';
 
+
+
 export default function Home() {
+
   const [activeSymbol, setActiveSymbolState] = useState<string>('RELIANCE');
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '1Y' | 'ALL'>('1D');
   const [isMarketOpen, setIsMarketOpen] = useState<boolean>(true);
@@ -89,107 +94,87 @@ export default function Home() {
     }
   };
 
-  // Sync active stock quote whenever niftyStocks (from Upstox API) or activeSymbol changes
+  // Sync active stock quote & Real Upstox Market Depth whenever activeSymbol or niftyStocks changes
   useEffect(() => {
+    let isMounted = true;
     const targetStock = niftyStocks.find((s) => s.symbol === activeSymbol) || niftyStocks[0];
 
-    setQuote((prevQuote) => {
-      // Sync quote with latest live price from niftyStocks
-      const livePrice = targetStock.price;
-      const liveChange = targetStock.change;
-      const liveChangePercent = targetStock.changePercent;
+    // Fetch Real 5-Level Market Depth & Ratio from Upstox API
+    fetchUpstoxMarketDepth(activeSymbol).then((depthRes) => {
+      if (!isMounted) return;
 
-      return {
-        symbol: targetStock.symbol,
-        name: targetStock.name,
-        sector: targetStock.sector,
-        price: livePrice,
-        change: liveChange,
-        changePercent: liveChangePercent,
-        dayHigh: Number((livePrice * 1.018).toFixed(2)),
-        dayLow: Number((livePrice * 0.985).toFixed(2)),
-        yearHigh: Number((livePrice * 1.25).toFixed(2)),
-        yearLow: Number((livePrice * 0.75).toFixed(2)),
-        open: Number((livePrice - liveChange).toFixed(2)),
-        prevClose: Number((livePrice - liveChange).toFixed(2)),
-        volume: targetStock.volume,
-        marketCap: `₹${(targetStock.marketCap / 100000).toFixed(2)} Lakh Cr`,
-        vwap: Number((livePrice * 0.998).toFixed(2)),
-        buyPercent: Math.floor(Math.random() * 35 + 45),
-        sellPercent: 0,
-        lastUpdated: lastSynced || new Date().toLocaleTimeString('en-IN'),
-      };
+      if (depthRes && depthRes.orderBook) {
+        setOrderBook(depthRes.orderBook);
+        setQuote((prevQuote) => ({
+          ...prevQuote,
+          symbol: targetStock.symbol,
+          name: targetStock.name,
+          sector: targetStock.sector,
+          price: targetStock.price,
+          change: targetStock.change,
+          changePercent: targetStock.changePercent,
+          dayHigh: Number((targetStock.price * 1.018).toFixed(2)),
+          dayLow: Number((targetStock.price * 0.985).toFixed(2)),
+          yearHigh: Number((targetStock.price * 1.25).toFixed(2)),
+          yearLow: Number((targetStock.price * 0.75).toFixed(2)),
+          open: Number((targetStock.price - targetStock.change).toFixed(2)),
+          prevClose: Number((targetStock.price - targetStock.change).toFixed(2)),
+          volume: targetStock.volume,
+          marketCap: `₹${(targetStock.marketCap / 100000).toFixed(2)} Lakh Cr`,
+          vwap: Number((targetStock.price * 0.998).toFixed(2)),
+          buyPercent: depthRes.buyPercent,
+          sellPercent: depthRes.sellPercent,
+          lastUpdated: lastSynced || new Date().toLocaleTimeString('en-IN'),
+        }));
+      } else {
+        // Fallback to calibrated orderbook if market is offline
+        setOrderBook(generateOrderBook(targetStock.price));
+        setQuote((prevQuote) => ({
+          ...prevQuote,
+          symbol: targetStock.symbol,
+          name: targetStock.name,
+          sector: targetStock.sector,
+          price: targetStock.price,
+          change: targetStock.change,
+          changePercent: targetStock.changePercent,
+          buyPercent: 58,
+          sellPercent: 42,
+          lastUpdated: lastSynced || new Date().toLocaleTimeString('en-IN'),
+        }));
+      }
     });
 
-    setOrderBook(generateOrderBook(targetStock.price));
     setRecentTrades(generateRecentTrades(targetStock.price));
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeSymbol, niftyStocks, lastSynced]);
 
-  // Load / Update Candlestick Data when activeSymbol or timeframe changes
+
+  // Load / Update Real Candlestick Data from Upstox API when activeSymbol or timeframe changes
   useEffect(() => {
-    const generatedCandles = generateCandleData(activeSymbol, timeframe);
-    setCandles(generatedCandles);
+    let isMounted = true;
+
+    fetchUpstoxCandles(activeSymbol, timeframe).then((realCandles) => {
+      if (!isMounted) return;
+      if (realCandles && realCandles.length > 0) {
+        setCandles(realCandles);
+      } else {
+        setCandles([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeSymbol, timeframe]);
 
-  // Real-Time Live Ticker Price Simulation (Only runs during market open when intraday updates occur)
-  useEffect(() => {
-    if (!isMarketOpen) return;
 
-    const interval = setInterval(() => {
-      setQuote((prevQuote) => {
-        const tickDirection = Math.random() > 0.47 ? 1 : -1;
-        const tickDelta = Number(((Math.random() * 0.85 + 0.15) * tickDirection).toFixed(2));
-        const newPrice = Math.max(1, Number((prevQuote.price + tickDelta).toFixed(2)));
-        const newChange = Number((newPrice - prevQuote.prevClose).toFixed(2));
-        const newChangePercent = Number(((newChange / prevQuote.prevClose) * 100).toFixed(2));
 
-        const newDayHigh = Math.max(prevQuote.dayHigh, newPrice);
-        const newDayLow = Math.min(prevQuote.dayLow, newPrice);
-
-        const newTrade: RecentTrade = {
-          id: Math.random().toString(36).substring(2, 9),
-          time: new Date().toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }),
-          price: newPrice,
-          quantity: Math.floor(Math.random() * 250 + 10),
-          type: tickDirection > 0 ? 'BUY' : 'SELL',
-        };
-
-        setRecentTrades((prev) => [newTrade, ...prev.slice(0, 7)]);
-        setOrderBook(generateOrderBook(newPrice));
-
-        return {
-          ...prevQuote,
-          price: newPrice,
-          change: newChange,
-          changePercent: newChangePercent,
-          dayHigh: newDayHigh,
-          dayLow: newDayLow,
-          volume: prevQuote.volume + (tickDirection > 0 ? 150 : 80),
-          lastUpdated: new Date().toLocaleTimeString('en-IN'),
-        };
-      });
-
-      setCandles((prevCandles) => {
-        if (prevCandles.length === 0) return prevCandles;
-        const updated = [...prevCandles];
-        const lastCandle = { ...updated[updated.length - 1] };
-        lastCandle.close = quote.price;
-        if (quote.price > lastCandle.high) lastCandle.high = quote.price;
-        if (quote.price < lastCandle.low) lastCandle.low = quote.price;
-        updated[updated.length - 1] = lastCandle;
-        return updated;
-      });
-    }, 1800);
-
-    return () => clearInterval(interval);
-  }, [isMarketOpen, quote.price]);
-
-  // Compute Technical Indicators
+  // Compute Technical Indicators directly on active candles
   const indicators = useMemo(() => computeIndicatorSummary(candles), [candles]);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 font-sans antialiased">
@@ -239,6 +224,7 @@ export default function Home() {
               symbol={activeSymbol}
               timeframe={timeframe}
               onTimeframeChange={setTimeframe}
+              onSelectStock={setActiveSymbol}
             />
           </div>
 
@@ -248,8 +234,12 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Fundamental Health & Valuation Scorecard (Upstox Analytics Powered) */}
+        <FundamentalScorecard symbol={activeSymbol} />
+
         {/* Live Stock News & Sentiment Feed */}
         <StockNewsFeed symbol={activeSymbol} />
+
 
         {/* Order Book & Recent Trades */}
         <OrderBook bids={orderBook.bids} asks={orderBook.asks} recentTrades={recentTrades} />

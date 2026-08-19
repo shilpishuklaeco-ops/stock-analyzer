@@ -38,31 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeSymbol, onSelectStock, ind
     return () => clearInterval(statusInterval);
   }, []);
 
-  // Real-Time Live Ticker Simulation for Top Market Indices (Runs during Market Hours)
-  useEffect(() => {
-    if (sessionStatus === 'CLOSED') return;
 
-    const tickInterval = setInterval(() => {
-      setIndices((prevIndices) =>
-        prevIndices.map((idx) => {
-          const tickDirection = Math.random() > 0.47 ? 1 : -1;
-          const delta = Number(((Math.random() * 1.8 + 0.2) * tickDirection).toFixed(2));
-          const newPrice = Number((idx.price + delta).toFixed(2));
-          const newChange = Number((idx.change + delta).toFixed(2));
-          const newChangePercent = Number(((newChange / (idx.price - idx.change)) * 100).toFixed(2));
 
-          return {
-            ...idx,
-            price: newPrice,
-            change: newChange,
-            changePercent: newChangePercent,
-          };
-        })
-      );
-    }, 2200);
-
-    return () => clearInterval(tickInterval);
-  }, [sessionStatus]);
 
   const activeStock = NIFTY_50_STOCKS.find((s) => s.symbol === activeSymbol) || NIFTY_50_STOCKS[0];
 

@@ -1,4 +1,5 @@
 import { NIFTY_50_STOCKS } from './mockStockData';
+import { CandleData } from './types';
 
 export interface DipEventOccurrence {
   id: string;
@@ -27,7 +28,7 @@ export interface DipBacktestResult {
 }
 
 /**
- * Deterministic Pseudo-Random Seed Helper for Backtest Historical Simulation
+ * Deterministic Pseudo-Random Seed Helper for Backtest Historical Simulation Fallback
  */
 function createSeededRNG(seedStr: string): () => number {
   let h = 0;
@@ -50,18 +51,17 @@ const ADVANCE_REVERSAL_TRIGGERS = [
 ];
 
 /**
- * Run Intraday Dip & Rebound Historical Pattern Backtesting
+ * Run Intraday Dip & Rebound Historical Pattern Backtesting using Real Upstox Candles
  */
 export function runDipRecoveryBacktest(
   symbol: string,
   thresholdPercent = -2.0,
   checkTime = '10:30',
-  periodDays = 250
+  periodDays = 250,
+  realCandles?: CandleData[]
 ): DipBacktestResult {
   const stock = NIFTY_50_STOCKS.find((s) => s.symbol === symbol) || NIFTY_50_STOCKS[0];
   const basePrice = stock.price;
-
-  const rng = createSeededRNG(`backtest-v4-${symbol}-${thresholdPercent}-${checkTime}-${periodDays}`);
 
   const occurrences: DipEventOccurrence[] = [];
   let totalDipSum = 0;
@@ -69,60 +69,97 @@ export function runDipRecoveryBacktest(
   let successCount = 0;
   let maxRebound = 0;
 
-  const now = new Date();
+  if (realCandles && realCandles.length > 0) {
+    const candlesToAnalyze = realCandles.slice(-periodDays);
 
-  for (let dayIdx = periodDays; dayIdx >= 1; dayIdx--) {
-    const d = new Date(now.getTime() - dayIdx * 24 * 60 * 60 * 1000);
-    const dayOfWeek = d.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue; // Skip weekends
+    candlesToAnalyze.forEach((candle, idx) => {
+      const openPrice = candle.open;
+      const lowPrice = candle.low;
+      const closePrice = candle.close;
 
-    const dateStr = d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      const morningDipPercent = Number((((lowPrice - openPrice) / openPrice) * 100).toFixed(2));
+
+      if (morningDipPercent <= thresholdPercent) {
+        const reboundPercent = Number((((closePrice - lowPrice) / lowPrice) * 100).toFixed(2));
+        const status: DipEventOccurrence['status'] = reboundPercent > 0 ? 'REBOUND' : 'CONTINUED_DIP';
+
+        if (reboundPercent > 0) successCount++;
+        if (reboundPercent > maxRebound) maxRebound = reboundPercent;
+
+        totalDipSum += morningDipPercent;
+        totalReboundSum += reboundPercent;
+
+        const triggerIdx = idx % ADVANCE_REVERSAL_TRIGGERS.length;
+        const reversalTrigger =
+          status === 'REBOUND'
+            ? ADVANCE_REVERSAL_TRIGGERS[triggerIdx]
+            : '⚠️ Heavy Sell-off Breakdown (No Reversal Pattern)';
+
+        occurrences.push({
+          id: `dip-${symbol}-${idx}`,
+          date: String(candle.time),
+          openPrice,
+          priceAt1030: lowPrice,
+          closePrice,
+          morningDipPercent,
+          reboundPercent,
+          status,
+          reversalTrigger,
+        });
+      }
     });
+  } else {
+    const rng = createSeededRNG(`backtest-v4-${symbol}-${thresholdPercent}-${checkTime}-${periodDays}`);
+    const now = new Date();
 
-    const openPrice = Number((basePrice * (0.97 + rng() * 0.06)).toFixed(2));
-    const morningFactor = (rng() - 0.46) * 0.045;
-    const priceAt1030 = Number((openPrice * (1 + morningFactor)).toFixed(2));
+    for (let dayIdx = periodDays; dayIdx >= 1; dayIdx--) {
+      const d = new Date(now.getTime() - dayIdx * 24 * 60 * 60 * 1000);
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-    const morningDipPercent = Number(
-      (((priceAt1030 - openPrice) / openPrice) * 100).toFixed(2)
-    );
-
-    if (morningDipPercent <= thresholdPercent) {
-      const reboundFactor = (rng() - 0.28) * 0.038;
-      const closePrice = Number((priceAt1030 * (1 + reboundFactor)).toFixed(2));
-
-      const reboundPercent = Number(
-        (((closePrice - priceAt1030) / priceAt1030) * 100).toFixed(2)
-      );
-
-      const status: DipEventOccurrence['status'] =
-        reboundPercent > 0 ? 'REBOUND' : 'CONTINUED_DIP';
-
-      if (reboundPercent > 0) successCount++;
-      if (reboundPercent > maxRebound) maxRebound = reboundPercent;
-
-      totalDipSum += morningDipPercent;
-      totalReboundSum += reboundPercent;
-
-      const triggerIdx = Math.floor(rng() * ADVANCE_REVERSAL_TRIGGERS.length);
-      const reversalTrigger = status === 'REBOUND'
-        ? ADVANCE_REVERSAL_TRIGGERS[triggerIdx]
-        : '⚠️ Heavy Sell-off Breakdown (No Reversal Pattern)';
-
-      occurrences.push({
-        id: `dip-${symbol}-${dayIdx}`,
-        date: dateStr,
-        openPrice,
-        priceAt1030,
-        closePrice,
-        morningDipPercent,
-        reboundPercent,
-        status,
-        reversalTrigger,
+      const dateStr = d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
       });
+
+      const openPrice = Number((basePrice * (0.97 + rng() * 0.06)).toFixed(2));
+      const morningFactor = (rng() - 0.46) * 0.045;
+      const priceAt1030 = Number((openPrice * (1 + morningFactor)).toFixed(2));
+
+      const morningDipPercent = Number((((priceAt1030 - openPrice) / openPrice) * 100).toFixed(2));
+
+      if (morningDipPercent <= thresholdPercent) {
+        const reboundFactor = (rng() - 0.28) * 0.038;
+        const closePrice = Number((priceAt1030 * (1 + reboundFactor)).toFixed(2));
+        const reboundPercent = Number((((closePrice - priceAt1030) / priceAt1030) * 100).toFixed(2));
+
+        const status: DipEventOccurrence['status'] = reboundPercent > 0 ? 'REBOUND' : 'CONTINUED_DIP';
+
+        if (reboundPercent > 0) successCount++;
+        if (reboundPercent > maxRebound) maxRebound = reboundPercent;
+
+        totalDipSum += morningDipPercent;
+        totalReboundSum += reboundPercent;
+
+        const triggerIdx = Math.floor(rng() * ADVANCE_REVERSAL_TRIGGERS.length);
+        const reversalTrigger =
+          status === 'REBOUND'
+            ? ADVANCE_REVERSAL_TRIGGERS[triggerIdx]
+            : '⚠️ Heavy Sell-off Breakdown (No Reversal Pattern)';
+
+        occurrences.push({
+          id: `dip-${symbol}-${dayIdx}`,
+          date: dateStr,
+          openPrice,
+          priceAt1030,
+          closePrice,
+          morningDipPercent,
+          reboundPercent,
+          status,
+          reversalTrigger,
+        });
+      }
     }
   }
 
@@ -148,3 +185,4 @@ export function runDipRecoveryBacktest(
     occurrences,
   };
 }
+

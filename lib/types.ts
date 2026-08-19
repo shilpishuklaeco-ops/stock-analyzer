@@ -19,7 +19,16 @@ export interface StockQuote {
   lastUpdated: string;
 }
 
+export interface LiveIndexQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
 export interface CandleData {
+
   time: string;
   open: number;
   high: number;
@@ -77,3 +86,29 @@ export interface NewsItem {
   snippet: string;
   sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 }
+
+export interface FundamentalData {
+  symbol: string;
+  peRatio: number;
+  pbRatio: number;
+  industryPe: number;
+  debtToEquity: number;
+  roePercent: number;
+  rocePercent: number;
+  dividendYield: number;
+  piotroskiScore: number; // 0 to 9
+  valuationStatus: 'UNDERVALUED' | 'FAIRLY_VALUED' | 'OVERVALUED';
+  salesGrowthYoY: number;
+  profitGrowthYoY: number;
+  freeCashFlowCr: number;
+  marketCapCr: number;
+}
+
+export type GridMode = 'SINGLE' | 'DUAL' | 'QUAD';
+
+export interface ChartPanelConfig {
+  id: string;
+  symbol: string;
+  timeframe: '1D' | '1W' | '1M' | '1Y' | 'ALL';
+}
+

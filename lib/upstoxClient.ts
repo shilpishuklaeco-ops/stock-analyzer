@@ -63,64 +63,26 @@ export async function fetchUpstoxCandles(
   symbol: string,
   timeframe: '1D' | '1W' | '1M' | '1Y' | 'ALL'
 ): Promise<CandleData[] | null> {
-  const instrumentKey = UPSTOX_INSTRUMENT_MAP[symbol] || UPSTOX_INSTRUMENT_MAP['RELIANCE'];
-  
-  let unit = '1minute';
-  if (timeframe === '1D') unit = '5minute';
-  else if (timeframe === '1W') unit = '30minute';
-  else if (timeframe === '1M') unit = 'day';
-  else unit = 'day';
-
-  const today = new Date().toISOString().split('T')[0];
-
   try {
     const response = await fetch(
-      `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(
-        instrumentKey
-      )}/${unit}/${today}`,
-      {
-        headers: {
-          Accept: 'application/json',
-        },
-      }
+      `/api/market/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`,
+      { cache: 'no-store' }
     );
 
-    if (!response.ok) {
-      console.warn(`Upstox API candle fetch response status: ${response.status}`);
-      return null;
-    }
+    if (!response.ok) return null;
 
     const json = await response.json();
-    if (json.status !== 'success' || !json.data || !json.data.candles) {
-      return null;
+    if (json.success && Array.isArray(json.candles)) {
+      return json.candles;
     }
 
-    // Upstox candle array format: [timestamp, open, high, low, close, volume, open_interest]
-    const candles: CandleData[] = json.data.candles
-      .map((c: [string, number, number, number, number, number]) => {
-        const timeStr = c[0];
-        // Format timestamp
-        const timeFormatted = timeStr.includes('T')
-          ? timeStr.replace('T', ' ').substring(0, 16)
-          : timeStr;
-
-        return {
-          time: timeFormatted,
-          open: c[1],
-          high: c[2],
-          low: c[3],
-          close: c[4],
-          volume: c[5],
-        };
-      })
-      .reverse(); // Upstox returns newest first, reverse for chronological chart order
-
-    return candles;
+    return null;
   } catch (err) {
-    console.error('Failed to fetch Upstox candles:', err);
+    console.error('Failed to fetch Upstox candles via proxy:', err);
     return null;
   }
 }
+
 
 /**
  * Fetch Real-time Market Quote from Upstox API
@@ -165,6 +127,53 @@ export async function fetchUpstoxMarketQuote(symbol: string): Promise<Partial<St
     };
   } catch (err) {
     console.error('Error fetching Upstox market quote:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch Fundamental Financial Data for a given stock symbol
+ */
+export async function fetchUpstoxFundamentals(symbol: string): Promise<import('./types').FundamentalData | null> {
+  try {
+    const response = await fetch(`/api/market/fundamentals?symbol=${encodeURIComponent(symbol)}`, {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return null;
+    const json = await response.json();
+    if (json.success && json.data) {
+      return json.data;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching fundamentals:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch Real 5-Level Market Depth & Real Index Quotes from Upstox API
+ */
+export async function fetchUpstoxMarketDepth(symbol: string): Promise<{
+  orderBook: { bids: import('./types').OrderBookItem[]; asks: import('./types').OrderBookItem[] };
+  buyPercent: number;
+  sellPercent: number;
+  indices: import('./types').LiveIndexQuote[];
+} | null> {
+  try {
+    const response = await fetch(`/api/market/depth?symbol=${encodeURIComponent(symbol)}`, {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return null;
+    const json = await response.json();
+    if (json.success && json.orderBook) {
+      return json;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching market depth:', err);
     return null;
   }
 }
