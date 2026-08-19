@@ -135,7 +135,7 @@ export async function fetchLiveStockNews(symbol: string): Promise<NewsItem[]> {
 }
 
 function parseRssXml(xml: string, symbol: string, companyName: string): NewsItem[] {
-  const items: NewsItem[] = [];
+  const parsedItems: (NewsItem & { pubTime: number })[] = [];
   const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
 
   for (let i = 0; i < itemMatches.length; i++) {
@@ -157,48 +157,63 @@ function parseRssXml(xml: string, symbol: string, companyName: string): NewsItem
       title = parts.join(' - ');
     }
 
+    const pubTime = new Date(rawDate).getTime();
+
     if (title) {
       const sentiment = analyzeSentiment(title);
-      items.push({
+      parsedItems.push({
         id: `news-${symbol}-${i}-${Date.now()}`,
         title,
         link,
         source: source || 'Economic Times',
-        publishedAt: formatPubDate(rawDate, i),
+        publishedAt: formatPubDate(rawDate),
         snippet: `Latest market development and institutional trading updates for ${companyName}.`,
         sentiment,
+        pubTime: isNaN(pubTime) ? Date.now() - i * 3600000 : pubTime,
       });
     }
   }
 
-  return items;
+  // Sort strictly by newest published timestamp first
+  parsedItems.sort((a, b) => b.pubTime - a.pubTime);
+
+  return parsedItems.map(({ pubTime, ...item }) => item);
 }
 
-function formatPubDate(dateStr: string, index = 0): string {
+function formatPubDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
     const now = new Date();
-    
-    // Check if the date is today (17 Aug 2026)
-    const isToday =
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear();
+    const diffMs = now.getTime() - d.getTime();
 
-    if (isToday) {
-      const diffMs = now.getTime() - d.getTime();
-      const diffMins = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-
-      if (diffMins < 60) return `Today, ${Math.max(12, diffMins)} mins ago`;
-      if (diffHours < 24) return `Today, ${diffHours} hours ago`;
+    if (isNaN(diffMs) || diffMs < 0) {
+      return 'Just now';
     }
 
-    // Relative intraday timestamps for Today 17 Aug
-    const todayOffsets = ['Today, 25 mins ago', 'Today, 1 hour ago', 'Today, 3 hours ago', 'Today, 5 hours ago', 'Today, 7 hours ago'];
-    return todayOffsets[index % todayOffsets.length];
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) {
+      return `${Math.max(2, diffMins)} mins ago`;
+    }
+
+    if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    }
+
+    if (diffDays === 1) {
+      const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      return `Yesterday, ${timeStr}`;
+    }
+
+    if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    }
+
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch {
-    return 'Today, 17 Aug';
+    return 'Recently';
   }
 }
 
